@@ -57,19 +57,23 @@ class Game(arcade.Window):
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.A:
-            self.person.moveX = -PLAYER_MOVEMENT_SPEED #x-axis
+            self.person.moveX += -PLAYER_MOVEMENT_SPEED #x-axis
         if symbol == arcade.key.D:
-            self.person.moveX = PLAYER_MOVEMENT_SPEED #x-axis
+            self.person.moveX += PLAYER_MOVEMENT_SPEED #x-axis
         if symbol == arcade.key.W:
-            self.person.moveY = PLAYER_MOVEMENT_SPEED #y-axis
+            self.person.moveY += PLAYER_MOVEMENT_SPEED #y-axis
         if symbol == arcade.key.S:
-            self.person.moveY = -PLAYER_MOVEMENT_SPEED #y-axis
+            self.person.moveY += -PLAYER_MOVEMENT_SPEED #y-axis
 
     def on_key_release(self, symbol: int, modifiers: int):
-        if symbol == arcade.key.A or symbol == arcade.key.D: #x-axis
-            self.person.moveX = 0
-        if symbol == arcade.key.W or symbol == arcade.key.S: #y-axis
-            self.person.moveY = 0
+        if symbol == arcade.key.A:
+            self.person.moveX += PLAYER_MOVEMENT_SPEED  # x-axis
+        if symbol == arcade.key.D:
+            self.person.moveX += -PLAYER_MOVEMENT_SPEED  # x-axis
+        if symbol == arcade.key.W:
+            self.person.moveY += -PLAYER_MOVEMENT_SPEED  # y-axis
+        if symbol == arcade.key.S:
+            self.person.moveY += PLAYER_MOVEMENT_SPEED  # y-axis
 
 
 def main():
