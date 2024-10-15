@@ -5,6 +5,11 @@ HEIGHT = 600
 
 PLAYER_MOVEMENT_SPEED = 3
 
+RIGHT_FACING = DOWN_RIGHT_FACING = 0
+LEFT_FACING = DOWN_LEFT_FACING = 1
+UP_LEFT_FACING = UP_FACING = UP_RIGHT_FACING = 2
+DOWN_FACING = None
+
 
 def load_texture_pair(filename, x=0, y=0):
     """
@@ -52,17 +57,17 @@ class Entity(arcade.Sprite):
             self.walk_textures.append(texture)
 
         self.sprite = None
-        self.texture = self.stay_texture_pair[0]
+        self.texture = self.stay_texture_pair[RIGHT_FACING]
 
     def update_animation(self, delta_time: float = 1 / 60):
         if self.change_x == 0 and self.change_y == 0:
-            self.texture = self.stay_texture_pair[0]
+            self.texture = self.stay_texture_pair[LEFT_FACING]
             return
 
         self.cur_texture += 1
         if self.cur_texture > 3:
             self.cur_texture = 0
-        self.texture = self.walk_textures[self.cur_texture][0]
+        self.texture = self.walk_textures[self.cur_texture][RIGHT_FACING]
 
 
 class Player(Entity):
@@ -91,7 +96,6 @@ class Game(arcade.Window):
         self.scene.add_sprite_list("Player")
         self.scene.add_sprite_list("Map")
 
-        #self.person.sprite = arcade.Sprite("sprites/Forward.png", image_width=64, image_height=64)
         #load_texture_pair("sprites/Forward.png")
 
         self.person = Player()
@@ -146,6 +150,8 @@ if __name__ == '__main__':
 to-do list
 
 classes: sprite -> entity -> person | enemy, room - map, camera
+
+загружать текстуры игрока в __init__ ИГРОКА!!!
 
 Map generator
 Player shooting
