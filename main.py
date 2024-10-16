@@ -47,6 +47,7 @@ class Entity(arcade.Sprite):
     def __init__(self):
         super().__init__()
 
+        self.facing = RIGHT_FACING
         self.cur_texture = 0
 
         self.stay_texture_pair = load_crop_texture_pair("sprites/Forward.png", 64, 64)
@@ -65,9 +66,9 @@ class Entity(arcade.Sprite):
             return
 
         self.cur_texture += 1
-        if self.cur_texture > 3:
+        if self.cur_texture > 27:
             self.cur_texture = 0
-        self.texture = self.walk_textures[self.cur_texture][RIGHT_FACING]
+        self.texture = self.walk_textures[self.cur_texture//7][self.facing]
 
 
 class Player(Entity):
@@ -80,7 +81,7 @@ class Game(arcade.Window):
 
     def __init__(self, width, height, name):
         super().__init__(width, height, name)
-        arcade.set_background_color(arcade.color.BLUE)
+        arcade.set_background_color(arcade.color.WHITE)
 
         self.scene = None
 
@@ -115,6 +116,15 @@ class Game(arcade.Window):
         self.person.center_y += self.person.change_y
 
         self.person.update_animation(delta_time)
+
+    def on_mouse_motion(self, x, y, dx, dy):
+        if y > self.person.center_y and self.person.facing != UP_FACING:
+            """self.person.facing = UP_FACING #пока нет текстуры в паке"""
+        elif y < self.person.center_y and self.person.facing == UP_FACING:
+            if x > self.person.center_x and self.person.facing != RIGHT_FACING:
+                self.person.facing = RIGHT_FACING
+            elif x < self.person.center_x and self.person.facing != LEFT_FACING:
+                self.person.facing = LEFT_FACING
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.A:
