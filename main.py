@@ -50,11 +50,11 @@ class Entity(arcade.Sprite):
         self.facing = RIGHT_FACING
         self.cur_texture = 0
 
-        self.stay_texture_pair = load_crop_texture_pair("sprites/Forward.png", 64, 64)
+        self.stay_texture_pair = load_crop_texture_pair("A:\ProjectGame\RmPG-1\sprites\Forward.png", 64, 64)
 
         self.walk_textures = []
         for i in range(4):
-            texture = load_crop_texture_pair("sprites/Forward.png", 64, 64, x=i*64)
+            texture = load_crop_texture_pair("A:\ProjectGame\RmPG-1\sprites\Forward.png", 64, 64, x=i*64)
             self.walk_textures.append(texture)
 
         self.sprite = None
@@ -81,8 +81,9 @@ class Game(arcade.Window):
 
     def __init__(self, width, height, name):
         super().__init__(width, height, name)
-        arcade.set_background_color(arcade.color.WHITE)
 
+        self.background_texture = None
+        
         self.scene = None
 
         self.physics_engine = None
@@ -96,19 +97,19 @@ class Game(arcade.Window):
 
         self.scene.add_sprite_list("Player")
         self.scene.add_sprite_list("Map")
-
-        #load_texture_pair("sprites/Forward.png")
+        self.background_texture = arcade.load_texture('A:\ProjectGame\RmPG-1\sprites\\background.jpg')
+        
 
         self.person = Player()
         self.person.center_x = 500
         self.person.center_y = 400
         self.scene.add_sprite("Player", self.person)
-
         self.scene.add_sprite_list("sprites/Forward.png")
-
+        
     def on_draw(self):
         arcade.start_render()
 
+        arcade.draw_texture_rectangle(WIDTH // 2, HEIGHT // 2, WIDTH, HEIGHT, self.background_texture)    
         self.scene.draw()
 
     def on_update(self, delta_time: float):
