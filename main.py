@@ -1,5 +1,7 @@
 import arcade
 
+PATH = ''
+
 WIDTH = 800
 HEIGHT = 600
 
@@ -50,11 +52,11 @@ class Entity(arcade.Sprite):
         self.facing = RIGHT_FACING
         self.cur_texture = 0
 
-        self.stay_texture_pair = load_crop_texture_pair("A:\ProjectGame\RmPG-1\sprites\Forward.png", 64, 64)
+        self.stay_texture_pair = load_crop_texture_pair(f"{PATH}sprites\\Forward.png", 64, 64)
 
         self.walk_textures = []
         for i in range(4):
-            texture = load_crop_texture_pair("A:\ProjectGame\RmPG-1\sprites\Forward.png", 64, 64, x=i*64)
+            texture = load_crop_texture_pair("f{PATH}sprites\\Forward.png", 64, 64, x=i * 64)
             self.walk_textures.append(texture)
 
         self.sprite = None
@@ -68,7 +70,7 @@ class Entity(arcade.Sprite):
         self.cur_texture += 1
         if self.cur_texture > 27:
             self.cur_texture = 0
-        self.texture = self.walk_textures[self.cur_texture//7][self.facing]
+        self.texture = self.walk_textures[self.cur_texture // 7][self.facing]
 
 
 class Player(Entity):
@@ -83,7 +85,7 @@ class Game(arcade.Window):
         super().__init__(width, height, name)
 
         self.background_texture = None
-        
+
         self.scene = None
 
         self.physics_engine = None
@@ -97,19 +99,18 @@ class Game(arcade.Window):
 
         self.scene.add_sprite_list("Player")
         self.scene.add_sprite_list("Map")
-        self.background_texture = arcade.load_texture('A:\ProjectGame\RmPG-1\sprites\\background.jpg')
-        
+        self.background_texture = arcade.load_texture(f"{PATH}sprites\\background.jpg")
 
         self.person = Player()
         self.person.center_x = 500
         self.person.center_y = 400
         self.scene.add_sprite("Player", self.person)
-        self.scene.add_sprite_list("sprites/Forward.png")
-        
+        self.scene.add_sprite_list(f"{PATH}sprites\\Forward.png")
+
     def on_draw(self):
         arcade.start_render()
 
-        arcade.draw_texture_rectangle(WIDTH // 2, HEIGHT // 2, WIDTH, HEIGHT, self.background_texture)    
+        arcade.draw_texture_rectangle(WIDTH // 2, HEIGHT // 2, WIDTH, HEIGHT, self.background_texture)
         self.scene.draw()
 
     def on_update(self, delta_time: float):
@@ -129,13 +130,13 @@ class Game(arcade.Window):
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.A:
-            self.person.change_x += -PLAYER_MOVEMENT_SPEED #x-axis
+            self.person.change_x += -PLAYER_MOVEMENT_SPEED  # x-axis
         if symbol == arcade.key.D:
-            self.person.change_x += PLAYER_MOVEMENT_SPEED #x-axis
+            self.person.change_x += PLAYER_MOVEMENT_SPEED  # x-axis
         if symbol == arcade.key.W:
-            self.person.change_y += PLAYER_MOVEMENT_SPEED #y-axis
+            self.person.change_y += PLAYER_MOVEMENT_SPEED  # y-axis
         if symbol == arcade.key.S:
-            self.person.change_y += -PLAYER_MOVEMENT_SPEED #y-axis
+            self.person.change_y += -PLAYER_MOVEMENT_SPEED  # y-axis
 
     def on_key_release(self, symbol: int, modifiers: int):
         if symbol == arcade.key.A:
