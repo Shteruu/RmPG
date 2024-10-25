@@ -1,6 +1,8 @@
+from re import S
 import arcade
 
-PATH = ''
+
+PATH = 'A:\ProjectGame\RmPG\\'
 
 WIDTH = 800
 HEIGHT = 600
@@ -53,11 +55,12 @@ class Entity(arcade.Sprite):
         self.cur_texture = 0
 
         self.stay_texture_pair = load_crop_texture_pair(f"{PATH}sprites\\Forward.png", 64, 64)
-
+        self.texture_back = arcade.load_texture(f"{PATH}sprites\\Back.png", 64, 64)
         self.walk_textures = []
         for i in range(4):
-            texture = load_crop_texture_pair("f{PATH}sprites\\Forward.png", 64, 64, x=i * 64)
+            texture = load_crop_texture_pair(f"{PATH}sprites\\Forward.png", 64, 64, x=i * 64)
             self.walk_textures.append(texture)
+        self.walk_textures.append(self.texture_back)
 
         self.sprite = None
         self.texture = self.stay_texture_pair[RIGHT_FACING]
@@ -66,10 +69,13 @@ class Entity(arcade.Sprite):
         if self.change_x == 0 and self.change_y == 0:
             self.texture = self.stay_texture_pair[LEFT_FACING]
             return
-
+        if self.facing == UP_FACING:
+            self.texture = self.walk_textures[-1]
+            return
         self.cur_texture += 1
         if self.cur_texture > 27:
             self.cur_texture = 0
+        
         self.texture = self.walk_textures[self.cur_texture // 7][self.facing]
 
 
@@ -111,6 +117,8 @@ class Game(arcade.Window):
         arcade.start_render()
 
         arcade.draw_texture_rectangle(WIDTH // 2, HEIGHT // 2, WIDTH, HEIGHT, self.background_texture)
+        
+  
         self.scene.draw()
 
     def on_update(self, delta_time: float):
@@ -120,8 +128,11 @@ class Game(arcade.Window):
         self.person.update_animation(delta_time)
 
     def on_mouse_motion(self, x, y, dx, dy):
+        self.x = x
+        self.y = y
+        self.dif_center_y = y - self.person.center_y
         if y > self.person.center_y and self.person.facing != UP_FACING:
-            """self.person.facing = UP_FACING #пока нет текстуры в паке"""
+            self.person.facing = UP_FACING 
         elif y < self.person.center_y and self.person.facing == UP_FACING:
             if x > self.person.center_x and self.person.facing != RIGHT_FACING:
                 self.person.facing = RIGHT_FACING
