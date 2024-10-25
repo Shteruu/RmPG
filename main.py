@@ -1,6 +1,6 @@
 from re import S
 import arcade
-
+import math
 
 PATH = 'A:\ProjectGame\RmPG\\'
 
@@ -65,7 +65,7 @@ class Entity(arcade.Sprite):
         self.sprite = None
         self.texture = self.stay_texture_pair[RIGHT_FACING]
 
-    def update_animation(self, delta_time: float = 1 / 60):
+    def update_animation(self, delta_time: float = 1 / 1):
         if self.change_x == 0 and self.change_y == 0:
             self.texture = self.stay_texture_pair[LEFT_FACING]
             return
@@ -130,10 +130,10 @@ class Game(arcade.Window):
     def on_mouse_motion(self, x, y, dx, dy):
         self.x = x
         self.y = y
-        self.dif_center_y = y - self.person.center_y
-        if y > self.person.center_y and self.person.facing != UP_FACING:
+        self.mouse_angle = math.atan2(y - self.person.center_y, x - self.person.center_x)
+        if  150 > (self.mouse_angle * (180 / math.pi)) > 30 and self.person.facing != UP_FACING:
             self.person.facing = UP_FACING 
-        elif y < self.person.center_y and self.person.facing == UP_FACING:
+        elif (150 < (self.mouse_angle * (180 / math.pi)))  or ((self.mouse_angle * (180 / math.pi)) < 30) and self.person.facing == UP_FACING:
             if x > self.person.center_x and self.person.facing != RIGHT_FACING:
                 self.person.facing = RIGHT_FACING
             elif x < self.person.center_x and self.person.facing != LEFT_FACING:
