@@ -1,4 +1,5 @@
 from re import S
+import select
 import arcade
 import math
 
@@ -99,6 +100,8 @@ class Game(arcade.Window):
         self.person = None
 
         self.map = None
+        
+        self.mouse_angle = 0 
 
     def setup(self):
         self.scene = arcade.Scene()
@@ -115,29 +118,31 @@ class Game(arcade.Window):
 
     def on_draw(self):
         arcade.start_render()
-
+        
         arcade.draw_texture_rectangle(WIDTH // 2, HEIGHT // 2, WIDTH, HEIGHT, self.background_texture)
         
-  
+        # this is a rendering of the degree of rotation of the mouse and in which direction the character is turned (оставил вдруг пригодится)
+        # arcade.draw_text(f"Mouse Angle: {self.mouse_angle:.2f}", 10, self.height - 30, arcade.color.WHITE, 14)
+        # arcade.draw_text(f"Facing: {self.person.facing}", 10, self.height - 50, arcade.color.WHITE, 14)
+
         self.scene.draw()
 
     def on_update(self, delta_time: float):
         self.person.center_x += self.person.change_x
         self.person.center_y += self.person.change_y
-
+        
         self.person.update_animation(delta_time)
 
     def on_mouse_motion(self, x, y, dx, dy):
         self.x = x
         self.y = y
-        self.mouse_angle = math.atan2(y - self.person.center_y, x - self.person.center_x)
-        if  150 > (self.mouse_angle * (180 / math.pi)) > 30 and self.person.facing != UP_FACING:
-            self.person.facing = UP_FACING 
-        elif (150 < (self.mouse_angle * (180 / math.pi)))  or ((self.mouse_angle * (180 / math.pi)) < 30) and self.person.facing == UP_FACING:
-            if x > self.person.center_x and self.person.facing != RIGHT_FACING:
-                self.person.facing = RIGHT_FACING
-            elif x < self.person.center_x and self.person.facing != LEFT_FACING:
-                self.person.facing = LEFT_FACING
+        self.mouse_angle = math.atan2(y - self.person.center_y, x - self.person.center_x) * (180 / math.pi)
+        if (self.mouse_angle > 135 or self.mouse_angle < -90):
+            self.person.facing = LEFT_FACING
+        elif -90 <= self.mouse_angle < 45:
+            self.person.facing = RIGHT_FACING
+        elif 45 <= self.mouse_angle <= 135:
+            self.person.facing = UP_FACING
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.A:
