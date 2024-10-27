@@ -1,9 +1,7 @@
-from re import S
-import select
 import arcade
 import math
 
-PATH = 'A:\ProjectGame\RmPG\\'
+PATH = ''#A:\ProjectGame\RmPG\\'
 
 WIDTH = 800
 HEIGHT = 600
@@ -56,7 +54,9 @@ class Entity(arcade.Sprite):
         self.cur_texture = 0
 
         self.stay_texture_pair = load_crop_texture_pair(f"{PATH}sprites\\Forward.png", 64, 64)
-        self.texture_back = arcade.load_texture(f"{PATH}sprites\\Back.png", 64, 64)
+        self.stay_texture_pair.append(arcade.load_texture(f"{PATH}sprites\\Back.png"))
+
+        self.texture_back = arcade.load_texture(f"{PATH}sprites\\Back.png")
         self.walk_textures = []
         for i in range(4):
             texture = load_crop_texture_pair(f"{PATH}sprites\\Forward.png", 64, 64, x=i * 64)
@@ -68,7 +68,7 @@ class Entity(arcade.Sprite):
 
     def update_animation(self, delta_time: float = 1 / 1):
         if self.change_x == 0 and self.change_y == 0:
-            self.texture = self.stay_texture_pair[LEFT_FACING]
+            self.texture = self.stay_texture_pair[self.facing]
             return
         if self.facing == UP_FACING:
             self.texture = self.walk_textures[-1]
@@ -120,10 +120,6 @@ class Game(arcade.Window):
         arcade.start_render()
         
         arcade.draw_texture_rectangle(WIDTH // 2, HEIGHT // 2, WIDTH, HEIGHT, self.background_texture)
-        
-        # this is a rendering of the degree of rotation of the mouse and in which direction the character is turned (оставил вдруг пригодится)
-        # arcade.draw_text(f"Mouse Angle: {self.mouse_angle:.2f}", 10, self.height - 30, arcade.color.WHITE, 14)
-        # arcade.draw_text(f"Facing: {self.person.facing}", 10, self.height - 50, arcade.color.WHITE, 14)
 
         self.scene.draw()
 
@@ -134,15 +130,15 @@ class Game(arcade.Window):
         self.person.update_animation(delta_time)
 
     def on_mouse_motion(self, x, y, dx, dy):
-        self.x = x
-        self.y = y
         self.mouse_angle = math.atan2(y - self.person.center_y, x - self.person.center_x) * (180 / math.pi)
-        if (self.mouse_angle > 135 or self.mouse_angle < -90):
+        if self.mouse_angle > 135 or self.mouse_angle < -90:
             self.person.facing = LEFT_FACING
         elif -90 <= self.mouse_angle < 45:
             self.person.facing = RIGHT_FACING
         elif 45 <= self.mouse_angle <= 135:
             self.person.facing = UP_FACING
+
+        self.person.update_animation(1/60)
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.A:
