@@ -14,7 +14,7 @@ LEFT_FACING = DOWN_LEFT_FACING = 1
 UP_LEFT_FACING = UP_FACING = UP_RIGHT_FACING = 2
 DOWN_FACING = None
 
-MAP_SIZE = 1000
+MAP_SIZE = 3000
 
 
 def load_texture_pair(filename, x=0, y=0):
@@ -93,6 +93,9 @@ class Game(arcade.Window):
     def __init__(self, width, height, name):
         super().__init__(width, height, name)
 
+        self.camera_x = 0
+        self.camera_y = 0
+
         self.background_texture = None
 
         self.scene = None
@@ -109,9 +112,13 @@ class Game(arcade.Window):
 
         self.camera = None
 
-
     def on_mouse(self):
-        self.mouse_angle = math.atan2(self.mouse_y- self.person.center_y, self.mouse_x - self.person.center_x) * (180 / math.pi)
+
+        self.mouse_angle = math.atan2(self.mouse_y -
+                                      (self.person.center_y - self.camera_y),
+                                      self.mouse_x -
+                                      (self.person.center_x - self.camera_x)) * 180/math.pi
+
         if self.mouse_angle > 135 or self.mouse_angle < -90:
             self.person.facing = LEFT_FACING
         elif -90 <= self.mouse_angle < 45:
@@ -144,10 +151,10 @@ class Game(arcade.Window):
     def camera_on_player(self):  # coordinates links to left-down corner
         screen_center_x = self.person.center_x - SCREEN_WIDTH // 2
         screen_center_y = self.person.center_y - SCREEN_HEIGHT // 2
-        camera_x = max(min(screen_center_x, MAP_SIZE - SCREEN_WIDTH), 0)
-        camera_y = max(min(screen_center_y, MAP_SIZE - SCREEN_HEIGHT), 0)
+        self.camera_x = max(min(screen_center_x, MAP_SIZE - SCREEN_WIDTH), 0)
+        self.camera_y = max(min(screen_center_y, MAP_SIZE - SCREEN_HEIGHT), 0)
 
-        self.camera.move_to((camera_x, camera_y))
+        self.camera.move_to((self.camera_x, self.camera_y))
 
     def on_draw(self):
         arcade.start_render()
@@ -169,8 +176,6 @@ class Game(arcade.Window):
     def on_mouse_motion(self, x, y, dx, dy):
         self.mouse_x = x
         self.mouse_y = y
-
-
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.A:
