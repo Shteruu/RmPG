@@ -14,7 +14,7 @@ LEFT_FACING = DOWN_LEFT_FACING = 1
 UP_LEFT_FACING = UP_FACING = UP_RIGHT_FACING = 2
 DOWN_FACING = None
 
-MAP_SIZE = 3000
+MAP_SIZE = 1000
 
 
 def load_texture_pair(filename, x=0, y=0):
@@ -93,31 +93,63 @@ class Game(arcade.Window):
     def __init__(self, width, height, name):
         super().__init__(width, height, name)
 
-        self.camera_x = 0
-        self.camera_y = 0
-
-        self.background_texture = None
-
-        self.scene = None
+        self.wall = None
+        self.person = None
 
         self.physics_engine = None
 
-        self.person = None
+        self.scene = None
+
+        self.background_texture = None
 
         self.map = None
+
+        self.wall_list = None
+
+        self.camera = None
+
+        self.camera_x = 0
+        self.camera_y = 0
 
         self.mouse_angle = 0
         self.mouse_x = 0
         self.mouse_y = 0
 
-        self.camera = None
+        self.is_W_pressing = False
+        self.is_S_pressing = False
+
+    def setup(self):
+
+        self.scene = arcade.Scene()
+
+        self.camera = arcade.Camera(self.width, self.height)
+        self.camera.viewport_width = SCREEN_WIDTH * SCALING
+        self.camera.viewport_height = SCREEN_HEIGHT * SCALING
+
+        self.background_texture = arcade.load_texture(f"{PATH}sprites\\background.jpg")
+        self.scene.add_sprite_list("Player")
+        self.scene.add_sprite_list("Walls", use_spatial_hash=True)
+
+        self.person = Player()
+        self.person.center_x = SCREEN_WIDTH // 2
+        self.person.center_y = SCREEN_HEIGHT // 2
+        self.person.center = self.person.center_x, self.person.center_y
+
+        self.wall_list = arcade.SpriteList()
+        self.wall = arcade.Sprite(f"{PATH}sprites\\wall.png", 0.05)
+        self.wall.center_x = 364
+        self.wall.center_y = 200
+        self.scene.add_sprite("Walls", self.wall)
+
+        self.scene.add_sprite("Player", self.person)
+        self.scene.add_sprite_list(f"{PATH}sprites\\Forward.png")
+
+        self.physics_engine = arcade.PhysicsEngineSimple(self.person, self.scene["Walls"])
 
     def on_mouse(self):
 
-        self.mouse_angle = math.atan2(self.mouse_y -
-                                      (self.person.center_y - self.camera_y),
-                                      self.mouse_x -
-                                      (self.person.center_x - self.camera_x)) * 180/math.pi
+        self.mouse_angle = math.atan2(self.mouse_y - (self.person.center_y - self.camera_y),
+                                      self.mouse_x - (self.person.center_x - self.camera_x)) * 180/math.pi
 
         if self.mouse_angle > 135 or self.mouse_angle < -90:
             self.person.facing = LEFT_FACING
@@ -127,26 +159,6 @@ class Game(arcade.Window):
             self.person.facing = UP_FACING
 
         self.person.update_animation(1/60)
-
-    def setup(self):
-        self.scene = arcade.Scene()
-
-        self.camera = arcade.Camera(self.width, self.height)
-        self.camera.viewport_width = SCREEN_WIDTH * SCALING
-        self.camera.viewport_height = SCREEN_HEIGHT * SCALING
-
-        self.scene.add_sprite_list("Player")
-        self.scene.add_sprite_list("Map")
-        self.background_texture = arcade.load_texture(f"{PATH}sprites\\background.jpg")
-
-        self.person = Player()
-        # self.person.scale = 0.5
-        self.person.center_x = SCREEN_WIDTH // 2
-        self.person.center_y = SCREEN_HEIGHT // 2
-        self.person.center = self.person.center_x, self.person.center_y
-
-        self.scene.add_sprite("Player", self.person)
-        self.scene.add_sprite_list(f"{PATH}sprites\\Forward.png")
 
     def camera_on_player(self):  # coordinates links to left-down corner
         screen_center_x = self.person.center_x - SCREEN_WIDTH // 2
@@ -168,9 +180,10 @@ class Game(arcade.Window):
     def on_update(self, delta_time: float):
         self.person.center_x += self.person.change_x
         self.person.center_y += self.person.change_y
+
         self.on_mouse()
         self.person.update_animation(delta_time)
-
+        self.physics_engine.update()
         self.camera_on_player()
 
     def on_mouse_motion(self, x, y, dx, dy):
@@ -182,20 +195,47 @@ class Game(arcade.Window):
             self.person.change_x += -PLAYER_MOVEMENT_SPEED  # x-axis
         if symbol == arcade.key.D:
             self.person.change_x += PLAYER_MOVEMENT_SPEED  # x-axis
+
+        # y-axis
         if symbol == arcade.key.W:
-            self.person.change_y += PLAYER_MOVEMENT_SPEED  # y-axis
+            self.is_W_pressing = True
+            if self.is_S_pressing:
+                self.person.change_y = 0
+            else:
+                self.person.change_y = PLAYER_MOVEMENT_SPEED
+
+        # y-axis
         if symbol == arcade.key.S:
-            self.person.change_y += -PLAYER_MOVEMENT_SPEED  # y-axis
+            self.is_S_pressing = True
+            if self.is_W_pressing:
+                self.person.change_y = 0
+            else:
+                self.person.change_y = -PLAYER_MOVEMENT_SPEED
 
     def on_key_release(self, symbol: int, modifiers: int):
         if symbol == arcade.key.A:
             self.person.change_x += PLAYER_MOVEMENT_SPEED  # x-axis
         if symbol == arcade.key.D:
             self.person.change_x += -PLAYER_MOVEMENT_SPEED  # x-axis
+
+        #Движок в on_update присваивает 0 для change_y (только у не х),
+        #поэтому после столкновения со стеной персонаж бежит в другую сторону (0 <= curent_speed <= 2*max_speed)
+        # y-axis
         if symbol == arcade.key.W:
-            self.person.change_y += -PLAYER_MOVEMENT_SPEED  # y-axis
+            self.is_W_pressing = False
+            if self.is_S_pressing:
+                self.person.change_y = -PLAYER_MOVEMENT_SPEED
+            else:
+                self.person.change_y = 0
+        # y-axis
         if symbol == arcade.key.S:
-            self.person.change_y += PLAYER_MOVEMENT_SPEED  # y-axis
+            self.is_S_pressing = False
+            if self.is_W_pressing:
+                self.person.change_y = PLAYER_MOVEMENT_SPEED
+            else:
+                self.person.change_y = 0
+
+#Если одновременно нажать на W и S - нельзя ходить вбок, а если A и D, то движение вверх-вниз работает
 
 
 def main():
