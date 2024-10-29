@@ -101,8 +101,22 @@ class Game(arcade.Window):
 
         self.map = None
         
-        self.mouse_angle = 0 
+        self.mouse_angle = 0
+        self.mouse_x = 0
+        self.mouse_y = 0 
 
+    
+    def on_mouse(self):
+        self.mouse_angle = math.atan2(self.mouse_y- self.person.center_y, self.mouse_x - self.person.center_x) * (180 / math.pi)
+        if self.mouse_angle > 135 or self.mouse_angle < -90:
+            self.person.facing = LEFT_FACING
+        elif -90 <= self.mouse_angle < 45:
+            self.person.facing = RIGHT_FACING
+        elif 45 <= self.mouse_angle <= 135:
+            self.person.facing = UP_FACING
+            
+        self.person.update_animation(1/60)
+    
     def setup(self):
         self.scene = arcade.Scene()
 
@@ -126,19 +140,14 @@ class Game(arcade.Window):
     def on_update(self, delta_time: float):
         self.person.center_x += self.person.change_x
         self.person.center_y += self.person.change_y
-        
+        self.on_mouse()
         self.person.update_animation(delta_time)
 
     def on_mouse_motion(self, x, y, dx, dy):
-        self.mouse_angle = math.atan2(y - self.person.center_y, x - self.person.center_x) * (180 / math.pi)
-        if self.mouse_angle > 135 or self.mouse_angle < -90:
-            self.person.facing = LEFT_FACING
-        elif -90 <= self.mouse_angle < 45:
-            self.person.facing = RIGHT_FACING
-        elif 45 <= self.mouse_angle <= 135:
-            self.person.facing = UP_FACING
+        self.mouse_x = x
+        self.mouse_y = y
 
-        self.person.update_animation(1/60)
+        
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.A:
