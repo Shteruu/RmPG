@@ -74,8 +74,11 @@ class Player(Entity):
         self.sprite = None
         self.texture = self.stay_texture_pair[RIGHT_FACING]
 
+        self.correct_change_x = 0
+        self.correct_change_y = 0
+
     def update_animation(self, delta_time: float = 1 / 1):
-        if self.change_x == 0 and self.change_y == 0:
+        if self.correct_change_x == 0 and self.correct_change_y == 0:
             self.texture = self.stay_texture_pair[self.facing]
             return
         if self.facing == UP_FACING:
@@ -178,12 +181,14 @@ class Game(arcade.Window):
         self.scene.draw()
 
     def on_update(self, delta_time: float):
-        self.person.center_x += self.person.change_x
-        self.person.center_y += self.person.change_y
+        self.person.center_x += self.person.correct_change_x
+        self.person.center_y += self.person.correct_change_y
+
+        self.physics_engine.update()
 
         self.on_mouse()
         self.person.update_animation(delta_time)
-        self.physics_engine.update()
+
         self.camera_on_player()
 
     def on_mouse_motion(self, x, y, dx, dy):
@@ -192,48 +197,23 @@ class Game(arcade.Window):
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.A:
-            self.person.change_x += -PLAYER_MOVEMENT_SPEED  # x-axis
+            self.person.correct_change_x += -PLAYER_MOVEMENT_SPEED  # x-axis
         if symbol == arcade.key.D:
-            self.person.change_x += PLAYER_MOVEMENT_SPEED  # x-axis
-
-        # y-axis
-        if symbol == arcade.key.W:
-            self.is_W_pressing = True
-            if self.is_S_pressing:
-                self.person.change_y = 0
-            else:
-                self.person.change_y = PLAYER_MOVEMENT_SPEED
-
-        # y-axis
+            self.person.correct_change_x += PLAYER_MOVEMENT_SPEED  # x-axis
         if symbol == arcade.key.S:
-            self.is_S_pressing = True
-            if self.is_W_pressing:
-                self.person.change_y = 0
-            else:
-                self.person.change_y = -PLAYER_MOVEMENT_SPEED
+            self.person.correct_change_y += -PLAYER_MOVEMENT_SPEED  # y-axis
+        if symbol == arcade.key.W:
+            self.person.correct_change_y += PLAYER_MOVEMENT_SPEED  # y-axis
 
     def on_key_release(self, symbol: int, modifiers: int):
         if symbol == arcade.key.A:
-            self.person.change_x += PLAYER_MOVEMENT_SPEED  # x-axis
+            self.person.correct_change_x += PLAYER_MOVEMENT_SPEED  # x-axis
         if symbol == arcade.key.D:
-            self.person.change_x += -PLAYER_MOVEMENT_SPEED  # x-axis
-
-        #Движок в on_update присваивает 0 для change_y (только у не х),
-        #поэтому после столкновения со стеной персонаж бежит в другую сторону (0 <= curent_speed <= 2*max_speed)
-        # y-axis
-        if symbol == arcade.key.W:
-            self.is_W_pressing = False
-            if self.is_S_pressing:
-                self.person.change_y = -PLAYER_MOVEMENT_SPEED
-            else:
-                self.person.change_y = 0
-        # y-axis
+            self.person.correct_change_x += -PLAYER_MOVEMENT_SPEED  # x-axis
         if symbol == arcade.key.S:
-            self.is_S_pressing = False
-            if self.is_W_pressing:
-                self.person.change_y = PLAYER_MOVEMENT_SPEED
-            else:
-                self.person.change_y = 0
+            self.person.correct_change_y += PLAYER_MOVEMENT_SPEED  # y-axis
+        if symbol == arcade.key.W:
+            self.person.correct_change_y += -PLAYER_MOVEMENT_SPEED  # y-axis
 
 #Если одновременно нажать на W и S - нельзя ходить вбок, а если A и D, то движение вверх-вниз работает
 
