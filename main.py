@@ -6,7 +6,7 @@ PATH = ''  # A:\ProjectGame\RmPG\\'
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 
-BACKGROUND_SCALING = 0.25
+BACKGROUND_SCALING = 0.2
 CAMERA_SCALING = 1
 SCALING = 1
 
@@ -101,7 +101,6 @@ class Game(arcade.Window):
     def __init__(self, width, height, name):
         super().__init__(width, height, name)
 
-        self.wall = None
         self.person = None
 
         self.physics_engine = None
@@ -112,7 +111,7 @@ class Game(arcade.Window):
 
         self.map = None
 
-        self.wall_list = None
+        self.border_wall_list = None
 
         self.camera = None
 
@@ -122,9 +121,6 @@ class Game(arcade.Window):
         self.mouse_angle = 0
         self.mouse_x = 0
         self.mouse_y = 0
-
-        self.is_W_pressing = False
-        self.is_S_pressing = False
 
     def setup(self):
 
@@ -143,20 +139,28 @@ class Game(arcade.Window):
         self.person.center_y = SCREEN_HEIGHT // 2
         self.person.center = self.person.center_x, self.person.center_y
 
-        self.wall_list = arcade.SpriteList()
-        self.wall = arcade.Sprite(f"{PATH}sprites\\wall.png", 0.2)
-        self.wall.center_y = 1200
-        self.scene.add_sprite("Walls", self.wall)
-        self.wall = arcade.Sprite(f"{PATH}sprites\\wall.png")
-
-        self.wall2 = arcade.Sprite(f"{PATH}sprites\\wall.png", 0.2)
-        self.wall2.center_y = 1200
-        self.wall2.center_x = 1024 * 0.2
-        self.scene.add_sprite("Walls", self.wall2)
-        self.wall2 = arcade.Sprite(f"{PATH}sprites\\wall.png")
-
         self.scene.add_sprite("Player", self.person)
         self.scene.add_sprite_list(f"{PATH}sprites\\Forward.png")
+
+        self.scene.add_sprite_list("Walls", True, self.border_wall_list)
+        self.border_wall_list = arcade.SpriteList()
+
+        texture_width = int(1024 * BACKGROUND_SCALING)
+        half_texture = texture_width // 2
+        for x in range(0, MAP_SIZE, texture_width):
+            coordinate_list = [[x + half_texture, half_texture],
+                               [x + half_texture, MAP_SIZE - half_texture],
+                               [half_texture, x + half_texture],
+                               [MAP_SIZE - half_texture, x + half_texture]]
+            for coordinate in coordinate_list:
+                wall = arcade.Sprite("sprites\\wall.png", BACKGROUND_SCALING)
+                wall.center_x = coordinate[0]
+                wall.center_y = coordinate[1]
+                self.border_wall_list.append(wall)
+        self.scene.add_sprite_list("Walls", True, self.border_wall_list)
+        # хахахаха он не выдерживает 120 тайлов, надо текстуру 8к на всю карту, либо tile map, мб поможет
+        # хахахаха он не выдерживает 120 тайлов, надо текстуру 8к на всю карту, либо tile map, мб поможет
+        # хахахаха он не выдерживает 120 тайлов, надо текстуру 8к на всю карту, либо tile map, мб поможет
 
         self.physics_engine = arcade.PhysicsEngineSimple(self.person, self.scene["Walls"])
 
