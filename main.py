@@ -1,5 +1,6 @@
 import arcade
 import math
+from itertools import product
 
 PATH = ''  # A:\ProjectGame\RmPG\\'
 
@@ -177,15 +178,23 @@ class Game(arcade.Window):
         num_tiles_y = MAP_SIZE // self.background_texture.scaled_height + 1
 
         # drawing matrix
-        for x in range(num_tiles_x):
-            for y in range(num_tiles_y):
-                arcade.draw_texture_rectangle(
-                    x * self.background_texture.scaled_width + self.background_texture.scaled_width / 2,
-                    y * self.background_texture.scaled_height + self.background_texture.scaled_height / 2,
-                    self.background_texture.scaled_width,
-                    self.background_texture.scaled_height,
-                    self.background_texture
-                )
+        tile_sprites = []
+        for x, y in product(range(num_tiles_x), range(num_tiles_y)):
+            sprite = arcade.SpriteSolidColor(self.background_texture.scaled_width, self.background_texture.scaled_height, arcade.color.WHITE)
+            sprite.texture = self.background_texture
+            sprite.center_x = x * self.background_texture.scaled_width + self.background_texture.scaled_width / 2
+            sprite.center_y = y * self.background_texture.scaled_height + self.background_texture.scaled_height / 2
+            tile_sprites.append(sprite)
+
+        # Создаем sprite batch
+        sprite_batch = arcade.SpriteList()
+
+        # Добавляем спрайты тайлов в sprite batch
+        for sprite in tile_sprites:
+            sprite_batch.append(sprite)
+
+        # Отрисовываем sprite batch
+        sprite_batch.draw()
 
     def on_mouse(self):
 
