@@ -19,7 +19,7 @@ LEFT_FACING = DOWN_LEFT_FACING = 1
 UP_LEFT_FACING = UP_FACING = UP_RIGHT_FACING = 2
 DOWN_FACING = None
 
-MAP_SIZE = 1024 * 70
+MAP_SIZE = 1024 * 3 # *1000+ supported (*300 recommended maximum)
 
 
 def load_texture_pair(filename, x=0, y=0):
@@ -110,12 +110,9 @@ class Game(arcade.Window):
         self.scene = None
 
         self.background_texture = None
-
-        self.bg_tile_sprites = None
+        self.background_sprites_matrix = None
 
         self.map = None
-
-        self.border_wall_list = None
 
         self.camera = None
 
@@ -134,12 +131,12 @@ class Game(arcade.Window):
         self.camera.viewport_width = SCREEN_WIDTH * CAMERA_SCALING
         self.camera.viewport_height = SCREEN_HEIGHT * CAMERA_SCALING
 
-        self.background_texture = arcade.load_texture(f"{PATH}sprites\\2.png")
+        self.setup_background()
+
+        self.scene.add_sprite_list("Walls", True)
+        self.setup_border("Walls")
+
         self.scene.add_sprite_list("Player")
-        self.scene.add_sprite_list("Walls", use_spatial_hash=True)
-
-        self.setup_bg()
-
         self.person = Player()
         self.person.center_x = SCREEN_WIDTH // 2
         self.person.center_y = SCREEN_HEIGHT // 2
@@ -148,57 +145,51 @@ class Game(arcade.Window):
         self.scene.add_sprite("Player", self.person)
         self.scene.add_sprite_list(f"{PATH}sprites\\Forward.png")
 
-        self.scene.add_sprite_list("Walls", True, self.border_wall_list)
-        self.border_wall_list = arcade.SpriteList()
-        self.append_border("Walls")
-
         self.physics_engine = arcade.PhysicsEngineSimple(self.person, self.scene["Walls"])
 
-    def append_border(self, name):
-        """
-        Append an edges walls to the sprite_list *name*.
-        """
-        texture_width = int(1024 * BORDER_SCALING)
-        half_texture = texture_width // 2 + 1
-        for x in range(0, MAP_SIZE, texture_width):
-            coordinate_list = [[x + half_texture, half_texture],
-                               [x + half_texture, MAP_SIZE - half_texture],
-                               [half_texture, x + half_texture],
-                               [MAP_SIZE - half_texture, x + half_texture]]
-            for coordinate in coordinate_list:
-                wall = arcade.Sprite("sprites\\wall.png", BORDER_SCALING)
-                wall.center_x = coordinate[0]
-                wall.center_y = coordinate[1]
-                self.border_wall_list.append(wall)
-        self.scene.add_sprite_list(name, True, self.border_wall_list)
+    def setup_background(self):
+        # setup texture
+        self.background_texture = arcade.load_texture(f"{PATH}sprites\\2.png")
 
-    def setup_bg(self):
         # scaling texture
         self.background_texture.scaled_width = int(self.background_texture.width * BACKGROUND_TEXTURE_SCALING)
         self.background_texture.scaled_height = int(self.background_texture.height * BACKGROUND_TEXTURE_SCALING)
+
         # calculate matrix
         num_tiles_x = MAP_SIZE // self.background_texture.scaled_width + 1
         num_tiles_y = MAP_SIZE // self.background_texture.scaled_height + 1
+
         # setup matrix
-        self.bg_tile_sprites = []
+        self.background_sprites_matrix = arcade.SpriteList()
         for x, y in product(range(num_tiles_x), range(num_tiles_y)):
             sprite = arcade.SpriteSolidColor(self.background_texture.scaled_width,
                                              self.background_texture.scaled_height, arcade.color.WHITE)
             sprite.texture = self.background_texture
             sprite.center_x = x * self.background_texture.scaled_width + self.background_texture.scaled_width / 2
             sprite.center_y = y * self.background_texture.scaled_height + self.background_texture.scaled_height / 2
-            self.bg_tile_sprites.append(sprite)
+            self.background_sprites_matrix.append(sprite)
 
     def draw_background(self):
-        # Создаем sprite batch
-        sprite_batch = arcade.SpriteList()
+        self.background_sprites_matrix.draw()
 
-        # Добавляем спрайты тайлов в sprite batch
-        for sprite in self.bg_tile_sprites:
-            sprite_batch.append(sprite)
-
-        # Отрисовываем sprite batch
-        sprite_batch.draw()
+    def setup_border(self, name):
+        """
+        Append an edges walls to the scene_sprite_list *name*.
+        """
+        border_list = arcade.SpriteList()
+        texture_width = int(1024 * BORDER_SCALING)
+        half_texture = texture_width // 2 + 1
+        for x in range(0, MAP_SIZE, texture_width):
+            coordinate_list = [[x + half_texture, half_texture],
+                               [MAP_SIZE - half_texture, x + half_texture],
+                               [MAP_SIZE - x + half_texture, MAP_SIZE - half_texture],
+                               [half_texture, x + half_texture]]
+            for coordinate in coordinate_list:
+                wall = arcade.Sprite("sprites\\wall.png", BORDER_SCALING)
+                wall.center_x = coordinate[0]
+                wall.center_y = coordinate[1]
+                border_list.append(wall)
+        self.scene.add_sprite_list(name, True, border_list)
 
     def on_mouse(self):
 
@@ -218,25 +209,16 @@ class Game(arcade.Window):
         # calculate camera position
         screen_x = self.person.center_x - (SCREEN_WIDTH // 2) // CAMERA_SCALING
         screen_y = self.person.center_y - (SCREEN_HEIGHT // 2) // CAMERA_SCALING
+
         # outboard inspection
         self.camera_x = max(min(screen_x, MAP_SIZE - SCREEN_WIDTH // CAMERA_SCALING), 0)
         self.camera_y = max(min(screen_y, MAP_SIZE - SCREEN_HEIGHT // CAMERA_SCALING), 0)
 
-        # сам не знаю, как это заработало скорее всего координаты вектора считаются в зависимости от экрана
-        self.camera.move_to((self.camera_x * CAMERA_SCALING,
-                             self.camera_y * CAMERA_SCALING),
-                            min(0.1 * CAMERA_SCALING, 1))
-
-    def get_current_room(self):
-        x1, y1, x2, y2 = -1, -1, -1, -1
-        for i in range(1000):
-            x1 += 1
-            x2 += 2
-            y1 += 1
-            y2 += 2
-            if x1 <= self.person.center_x < x2 and y1 <= self.person.center_y < y2:
-                return
-        return None
+        # I don't know how it worked, most likely the coordinates of the vector are calculated depending on the screen
+        self.camera.move_to(
+            (self.camera_x * CAMERA_SCALING, self.camera_y * CAMERA_SCALING), # vector
+            min(0.1 * CAMERA_SCALING, 1)
+        )
 
     def on_draw(self):
         arcade.start_render()
@@ -248,8 +230,6 @@ class Game(arcade.Window):
         self.scene.draw()
 
     def on_update(self, delta_time: float):
-        self.get_current_room()
-
         self.person.center_x += self.person.correct_change_x
         self.person.center_y += self.person.correct_change_y
 
@@ -285,9 +265,6 @@ class Game(arcade.Window):
             self.person.correct_change_y += -PLAYER_MOVEMENT_SPEED  # y-axis
 
 
-# Если одновременно нажать на W и S - нельзя ходить вбок, а если A и D, то движение вверх-вниз работает
-
-
 def main():
     window = Game(SCREEN_WIDTH, SCREEN_HEIGHT, 'RmPG')
     window.setup()
@@ -303,10 +280,14 @@ to-do list
 classes: sprite -> entity -> enemy
          room - map
 
+boolean WASD check ???
+max speed exception
 Map generator
 Player shooting
 UI
 Menu
-camera box 
+setup_textures ???
 
 '''
+
+#Если одновременно нажать на W и S - нельзя ходить вбок, а если A и D, то движение вверх-вниз работает как исправить
