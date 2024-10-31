@@ -19,7 +19,7 @@ LEFT_FACING = DOWN_LEFT_FACING = 1
 UP_LEFT_FACING = UP_FACING = UP_RIGHT_FACING = 2
 DOWN_FACING = None
 
-MAP_SIZE = 1024 * 10
+MAP_SIZE = 1024 * 70
 
 
 def load_texture_pair(filename, x=0, y=0):
@@ -111,6 +111,8 @@ class Game(arcade.Window):
 
         self.background_texture = None
 
+        self.bg_tile_sprites = None
+
         self.map = None
 
         self.border_wall_list = None
@@ -135,6 +137,8 @@ class Game(arcade.Window):
         self.background_texture = arcade.load_texture(f"{PATH}sprites\\2.png")
         self.scene.add_sprite_list("Player")
         self.scene.add_sprite_list("Walls", use_spatial_hash=True)
+
+        self.setup_bg()
 
         self.person = Player()
         self.person.center_x = SCREEN_WIDTH // 2
@@ -168,29 +172,29 @@ class Game(arcade.Window):
                 self.border_wall_list.append(wall)
         self.scene.add_sprite_list(name, True, self.border_wall_list)
 
-    def draw_background(self):
+    def setup_bg(self):
         # scaling texture
         self.background_texture.scaled_width = int(self.background_texture.width * BACKGROUND_TEXTURE_SCALING)
         self.background_texture.scaled_height = int(self.background_texture.height * BACKGROUND_TEXTURE_SCALING)
-
         # calculate matrix
         num_tiles_x = MAP_SIZE // self.background_texture.scaled_width + 1
         num_tiles_y = MAP_SIZE // self.background_texture.scaled_height + 1
-
-        # drawing matrix
-        tile_sprites = []
+        # setup matrix
+        self.bg_tile_sprites = []
         for x, y in product(range(num_tiles_x), range(num_tiles_y)):
-            sprite = arcade.SpriteSolidColor(self.background_texture.scaled_width, self.background_texture.scaled_height, arcade.color.WHITE)
+            sprite = arcade.SpriteSolidColor(self.background_texture.scaled_width,
+                                             self.background_texture.scaled_height, arcade.color.WHITE)
             sprite.texture = self.background_texture
             sprite.center_x = x * self.background_texture.scaled_width + self.background_texture.scaled_width / 2
             sprite.center_y = y * self.background_texture.scaled_height + self.background_texture.scaled_height / 2
-            tile_sprites.append(sprite)
+            self.bg_tile_sprites.append(sprite)
 
+    def draw_background(self):
         # Создаем sprite batch
         sprite_batch = arcade.SpriteList()
 
         # Добавляем спрайты тайлов в sprite batch
-        for sprite in tile_sprites:
+        for sprite in self.bg_tile_sprites:
             sprite_batch.append(sprite)
 
         # Отрисовываем sprite batch
