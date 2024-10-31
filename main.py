@@ -6,7 +6,8 @@ PATH = ''  # A:\ProjectGame\RmPG\\'
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 
-BACKGROUND_SCALING = 0.2
+BACKGROUND_TEXTURE_SCALING = 1
+BORDER_SCALING = 0.1
 CAMERA_SCALING = 1
 SCALING = 1
 
@@ -17,7 +18,7 @@ LEFT_FACING = DOWN_LEFT_FACING = 1
 UP_LEFT_FACING = UP_FACING = UP_RIGHT_FACING = 2
 DOWN_FACING = None
 
-MAP_SIZE = 3000
+MAP_SIZE = 1024 * 10
 
 
 def load_texture_pair(filename, x=0, y=0):
@@ -130,7 +131,7 @@ class Game(arcade.Window):
         self.camera.viewport_width = SCREEN_WIDTH * CAMERA_SCALING
         self.camera.viewport_height = SCREEN_HEIGHT * CAMERA_SCALING
 
-        self.background_texture = arcade.load_texture(f"{PATH}sprites\\background.png")
+        self.background_texture = arcade.load_texture(f"{PATH}sprites\\2.png")
         self.scene.add_sprite_list("Player")
         self.scene.add_sprite_list("Walls", use_spatial_hash=True)
 
@@ -144,25 +145,47 @@ class Game(arcade.Window):
 
         self.scene.add_sprite_list("Walls", True, self.border_wall_list)
         self.border_wall_list = arcade.SpriteList()
+        self.append_border("Walls")
 
-        texture_width = int(1024 * BACKGROUND_SCALING)
-        half_texture = texture_width // 2
+        self.physics_engine = arcade.PhysicsEngineSimple(self.person, self.scene["Walls"])
+
+    def append_border(self, name):
+        """
+        Append an edges walls to the sprite_list *name*.
+        """
+        texture_width = int(1024 * BORDER_SCALING)
+        half_texture = texture_width // 2 + 1
         for x in range(0, MAP_SIZE, texture_width):
             coordinate_list = [[x + half_texture, half_texture],
                                [x + half_texture, MAP_SIZE - half_texture],
                                [half_texture, x + half_texture],
                                [MAP_SIZE - half_texture, x + half_texture]]
             for coordinate in coordinate_list:
-                wall = arcade.Sprite("sprites\\wall.png", BACKGROUND_SCALING)
+                wall = arcade.Sprite("sprites\\wall.png", BORDER_SCALING)
                 wall.center_x = coordinate[0]
                 wall.center_y = coordinate[1]
                 self.border_wall_list.append(wall)
-        self.scene.add_sprite_list("Walls", True, self.border_wall_list)
-        # хахахаха он не выдерживает 120 тайлов, надо текстуру 8к на всю карту, либо tile map, мб поможет
-        # хахахаха он не выдерживает 120 тайлов, надо текстуру 8к на всю карту, либо tile map, мб поможет
-        # хахахаха он не выдерживает 120 тайлов, надо текстуру 8к на всю карту, либо tile map, мб поможет
+        self.scene.add_sprite_list(name, True, self.border_wall_list)
 
-        self.physics_engine = arcade.PhysicsEngineSimple(self.person, self.scene["Walls"])
+    def draw_background(self):
+        # scaling texture
+        self.background_texture.scaled_width = int(self.background_texture.width * BACKGROUND_TEXTURE_SCALING)
+        self.background_texture.scaled_height = int(self.background_texture.height * BACKGROUND_TEXTURE_SCALING)
+
+        # calculate matrix
+        num_tiles_x = MAP_SIZE // self.background_texture.scaled_width + 1
+        num_tiles_y = MAP_SIZE // self.background_texture.scaled_height + 1
+
+        # drawing matrix
+        for x in range(num_tiles_x):
+            for y in range(num_tiles_y):
+                arcade.draw_texture_rectangle(
+                    x * self.background_texture.scaled_width + self.background_texture.scaled_width / 2,
+                    y * self.background_texture.scaled_height + self.background_texture.scaled_height / 2,
+                    self.background_texture.scaled_width,
+                    self.background_texture.scaled_height,
+                    self.background_texture
+                )
 
     def on_mouse(self):
 
@@ -191,25 +214,16 @@ class Game(arcade.Window):
                              self.camera_y * CAMERA_SCALING),
                             min(0.1 * CAMERA_SCALING, 1))
 
-    def draw_background(self):
-        # scaling texture
-        self.background_texture.scaled_width = int(self.background_texture.width * BACKGROUND_SCALING)
-        self.background_texture.scaled_height = int(self.background_texture.height * BACKGROUND_SCALING)
-
-        # calculate matrix
-        num_tiles_x = MAP_SIZE // self.background_texture.scaled_width + 1
-        num_tiles_y = MAP_SIZE // self.background_texture.scaled_height + 1
-
-        # drawing matrix
-        for x in range(num_tiles_x):
-            for y in range(num_tiles_y):
-                arcade.draw_texture_rectangle(
-                    x * self.background_texture.scaled_width + self.background_texture.scaled_width / 2,
-                    y * self.background_texture.scaled_height + self.background_texture.scaled_height / 2,
-                    self.background_texture.scaled_width,
-                    self.background_texture.scaled_height,
-                    self.background_texture
-                )
+    def get_current_room(self):
+        x1, y1, x2, y2 = -1, -1, -1, -1
+        for i in range(1000):
+            x1 += 1
+            x2 += 2
+            y1 += 1
+            y2 += 2
+            if x1 <= self.person.center_x < x2 and y1 <= self.person.center_y < y2:
+                return
+        return None
 
     def on_draw(self):
         arcade.start_render()
@@ -221,6 +235,8 @@ class Game(arcade.Window):
         self.scene.draw()
 
     def on_update(self, delta_time: float):
+        self.get_current_room()
+
         self.person.center_x += self.person.correct_change_x
         self.person.center_y += self.person.correct_change_y
 
