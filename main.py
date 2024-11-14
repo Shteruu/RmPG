@@ -20,10 +20,11 @@ LEFT_FACING = DOWN_LEFT_FACING = 1
 UP_LEFT_FACING = UP_FACING = UP_RIGHT_FACING = 2
 DOWN_FACING = None
 
-MAP_SIZE = 1024 * 2 # *1000+ supported (*300 recommended maximum)
+MAP_SIZE = 1024 * 5 # *1000+ supported (*300 recommended maximum)
 TILE_SIZE = 800
 CORRIDOR_SIZE = 200
 MAX_TILES_IN_ROOM = 10
+WALLS_SCALING = 0.1
 
 
 def load_texture_pair(filename, x=0, y=0):
@@ -152,10 +153,11 @@ class Game(arcade.Window):
 
         self.setup_background()
 
-        self.map_generator()
-
         self.scene.add_sprite_list("Walls", True)
         self.setup_border("Walls")
+
+        self.map_generator()
+        self.draw_map("Walls")
 
         self.scene.add_sprite_list("Player")
         self.person = Player()
@@ -320,6 +322,27 @@ class Game(arcade.Window):
                 self.map_matrix[i][j].yd = 0
                 self.map_matrix[i][j-1].xr = self.map_matrix[i][j].xr
                 self.map_matrix[i][j-1].xl = self.map_matrix[i][j].xl
+
+    def draw_map(self, name):
+        for i in range(self.tiles_count):
+            for j in range(self.tiles_count):
+                if self.map_matrix[i][j].exist:
+                    wall_list = arcade.SpriteList()
+                    texture_width = int(1024 * WALLS_SCALING)
+                    half_texture = texture_width // 2 + 1
+                    coordinate_list = []
+                    for x in range(half_texture, self.map_matrix[i][j].height + texture_width, texture_width):
+                        coordinate_list += [[x + i * TILE_SIZE, j * TILE_SIZE], #dy
+                                            [x + i * TILE_SIZE, j * TILE_SIZE + self.map_matrix[i][j].height]] #uy
+                    for y in range(half_texture, self.map_matrix[i][j].width + texture_width, texture_width):
+                        coordinate_list += [[i * TILE_SIZE, y + j * TILE_SIZE],  # xl
+                                            [i * TILE_SIZE + self.map_matrix[i][j].width, y + j * TILE_SIZE]]  # xr
+                        for coordinate in coordinate_list:
+                            wall = arcade.Sprite("sprites\\wall.png", WALLS_SCALING)
+                            wall.center_x = coordinate[0]
+                            wall.center_y = coordinate[1]
+                            wall_list.append(wall)
+                    self.scene.add_sprite_list(name, True, wall_list)
 
     def on_mouse(self):
 
