@@ -1,4 +1,5 @@
 import arcade
+import arcade.gui
 import math
 from itertools import product
 import random
@@ -72,9 +73,52 @@ def append_wall_list(coordinate_list, wall_list):
         wall_list.append(wall)
 
 
+class PauseMenu:
+    def __init__(self, game):
+        self.game = game
+        self.visible = False
+        self.inaccuracy = PLAYER_MOVEMENT_SPEED*10
+        self.resume_button = arcade.gui.UIFlatButton(text="Resume", width=200,
+                                                     x=game.width // 2 + 100, y=game.height // 2 + 8)
+        self.quit_button = arcade.gui.UIFlatButton(text="Quit", width=200,
+                                                   x=game.width // 2 + 100, y=game.height // 2 - 52)
+
+        # Add button callbacks
+        self.resume_button.on_click = self.on_resume
+        self.quit_button.on_click = self.on_quit
+
+        # Create a UI container
+        self.ui_manager = arcade.gui.UIManager()
+        self.ui_manager.enable()
+        self.ui_manager.add(self.resume_button)
+        self.ui_manager.add(self.quit_button)
+
+    def on_resume(self, event):
+        self.visible = False
+        self.game.is_paused = False
+
+    @staticmethod
+    def on_quit(event):
+        arcade.close_window()
+
+    def draw(self):
+        if self.visible:
+            arcade.draw_lrtb_rectangle_filled(max(self.game.camera_x - self.inaccuracy, 0), #l
+                                              min(self.game.camera_x + SCREEN_WIDTH + self.inaccuracy, MAP_SIZE), #r
+                                              min(self.game.camera_y + SCREEN_HEIGHT + self.inaccuracy, MAP_SIZE), #u
+                                              max(self.game.camera_y - self.inaccuracy, 0), #d
+                                              (0, 0, 0, 128))
+            self.ui_manager.draw()
+
+    def update(self):
+        if self.visible:
+            self.ui_manager.on_update(1/60)
+
+
 class Player(arcade.Sprite):
     def __init__(self):
         super().__init__()
+
         # loading textures
         self.stay_texture_pair = load_crop_texture_pair(f"{PATH}sprites\\Forward.png", 64, 64)
         self.stay_texture_pair.append(arcade.load_texture(f"{PATH}sprites\\Back.png"))
@@ -99,10 +143,12 @@ class Player(arcade.Sprite):
         if self.correct_change_x == 0 and self.correct_change_y == 0:
             self.texture = self.stay_texture_pair[self.facing]
             return
+
         # back have only one texture
         if self.facing == UP_FACING:
             self.texture = self.walk_textures[-1]
             return
+
         # running animation
         self.cur_texture += 1
         if self.cur_texture > 27:
@@ -149,6 +195,9 @@ class Game(arcade.Window):
         self.mouse_angle = 0
         self.mouse_x = 0
         self.mouse_y = 0
+
+        self.pause_menu = PauseMenu(self)
+        self.is_paused = False
 
     def setup(self):
 
@@ -735,7 +784,13 @@ class Game(arcade.Window):
 
         self.scene.draw()
 
+        self.pause_menu.draw()
+
     def on_update(self, delta_time: float):
+        if self.is_paused:
+            self.pause_menu.update()
+            return
+
         self.max_speed_check()
         self.person.center_x += self.person.correct_change_x
         self.person.center_y += self.person.correct_change_y
@@ -748,10 +803,23 @@ class Game(arcade.Window):
         self.camera_on_player()
 
     def on_mouse_motion(self, x, y, dx, dy):
-        self.mouse_x = x
-        self.mouse_y = y
+        if self.is_paused:
+            self.pause_menu.ui_manager.on_mouse_motion(x, y, dx, dy)  # Forward mouse motion to UI Manager
+        else:
+            self.mouse_x = x
+            self.mouse_y = y
+
+    def on_mouse_press(self, x, y, button, modifiers):
+        if self.is_paused:
+            self.pause_menu.ui_manager.on_mouse_press(x, y, button, modifiers)  # Forward mouse press to UI Manager
+        else:
+            pass
 
     def on_key_press(self, symbol: int, modifiers: int):
+        if symbol == arcade.key.P or symbol == arcade.key.ESCAPE:  # Press 'P' to pause the game
+            self.is_paused = not self.is_paused
+            self.pause_menu.visible = self.is_paused
+
         if symbol == arcade.key.A or symbol == arcade.key.LEFT:
             self.person.correct_change_x += -PLAYER_MOVEMENT_SPEED  # x-axis
         if symbol == arcade.key.D or symbol == arcade.key.RIGHT:
