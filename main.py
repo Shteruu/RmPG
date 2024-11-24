@@ -22,7 +22,7 @@ DOWN_FACING = None
 
 WALL_TEXTURE = 1024
 TILE_SIZE = 100
-MAX_TILES_IN_ROOM = 3
+MAX_TILES_IN_ROOM = 8
 ROOM_SIZE = 5 # tiles
 MIN_ROOM_SIZE = ROOM_SIZE//2 + 1
 MAP_SIZE = ROOM_SIZE * TILE_SIZE * 25  # *1000+ supported (*300 recommended maximum)
@@ -113,15 +113,6 @@ class Tile:
         self.height = height
         self.room_id = 0
 
-        # clockwise
-
-
-        # counterclockwise
-        self.right_backward = 0
-        self.left_backward = 0
-        self.up_backward = 0
-        self.down_backward = width
-
 
 class Room:
     def __init__(self, width=ROOM_SIZE, height=ROOM_SIZE):
@@ -130,11 +121,6 @@ class Room:
         self.exist = False
         self.visited = False
         self.room_id = 0
-
-        self.right = False
-        self.left = False
-        self.up = False
-        self.down = False
 
 
 class Game(arcade.Window):
@@ -234,8 +220,6 @@ class Game(arcade.Window):
         self.scene.add_sprite_list(name, True, border_list)
 
     def map_generator(self):
-        min_size = ROOM_SIZE // 2
-        # сначала заполнять None, потом рандомить Tile
         self.map_matrix = [[Room() for _ in range(ROOM_COUNT)] for _ in range(ROOM_COUNT)]
 
         self.map_matrix[0][0].exist = True
@@ -270,6 +254,7 @@ class Game(arcade.Window):
                     self.map_matrix[i + 1][j].visited = True
                     if random.getrandbits(1):
                         self.map_matrix[i + 1][j].exist = True
+                        self.map_matrix[i][j].width = ROOM_SIZE
                         self.map_matrix[i + 1][j].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
                         self.map_matrix[i + 1][j].height = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
                         self.map_matrix[i + 1][j].room_id = self.map_matrix[i][j].room_id
@@ -282,7 +267,7 @@ class Game(arcade.Window):
                     self.map_matrix[i - 1][j].visited = True
                     if random.getrandbits(1):
                         self.map_matrix[i - 1][j].exist = True
-                        self.map_matrix[i - 1][j].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
+                        self.map_matrix[i - 1][j].width = ROOM_SIZE
                         self.map_matrix[i - 1][j].height = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
                         self.map_matrix[i - 1][j].room_id = self.map_matrix[i][j].room_id
                         current_count += 1
@@ -294,6 +279,7 @@ class Game(arcade.Window):
                     self.map_matrix[i][j + 1].visited = True
                     if random.getrandbits(1):
                         self.map_matrix[i][j + 1].exist = True
+                        self.map_matrix[i][j].height = ROOM_SIZE
                         self.map_matrix[i][j + 1].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
                         self.map_matrix[i][j + 1].height = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
                         self.map_matrix[i][j + 1].room_id = self.map_matrix[i][j].room_id
@@ -307,7 +293,7 @@ class Game(arcade.Window):
                     if random.getrandbits(1):
                         self.map_matrix[i][j - 1].exist = True
                         self.map_matrix[i][j - 1].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
-                        self.map_matrix[i][j - 1].height = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
+                        self.map_matrix[i][j - 1].height = ROOM_SIZE
                         self.map_matrix[i][j - 1].room_id = self.map_matrix[i][j].room_id
                         current_count += 1
                         queue.append((i, j - 1))
@@ -316,21 +302,33 @@ class Game(arcade.Window):
             pointer += 1
 
     def neighbour_check(self):
+        """
+        Final check and rooms rebuild
+        """
         for i in range(ROOM_COUNT-1):
             for j in range(ROOM_COUNT-1):
+                f1 = f2 = False
                 if self.map_matrix[i + 1][j].room_id == self.map_matrix[i][j].room_id:
-                    self.map_matrix[i][j].height = self.map_matrix[i + 1][j].height
-
+                    f1 = True
                 if self.map_matrix[i][j + 1].room_id == self.map_matrix[i][j].room_id:
+                    f2 = True
+                # если есть сосед с другой стороны, то грань максимальная, а не соседская (наследуется от родителя)
+                if f1 and not f2:
+                    self.map_matrix[i][j].height = self.map_matrix[i + 1][j].height
+                if f2 and not f1:
                     self.map_matrix[i][j].width = self.map_matrix[i][j + 1].width
+                if f1 and f2:
+                    self.map_matrix[i][j].height = ROOM_SIZE
+                    self.map_matrix[i][j].width = ROOM_SIZE
 
+# имеются очень редкие появления стен посередине комнат
+# природа наследственная, ярко-выраженная, источник неизвестен
     def draw_map(self, name):
         wall_list = arcade.SpriteList()  # correct!!
         for i in range(ROOM_COUNT):
             for j in range(ROOM_COUNT):
                 if self.map_matrix[i][j].exist:
                     coordinate_list = []
-
                     if i + 1 < ROOM_COUNT:
                         if self.map_matrix[i + 1][j].room_id == self.map_matrix[i][j].room_id:
                             for y in range(0, self.map_matrix[i][j].height - self.map_matrix[i + 1][j].height): # right
@@ -340,7 +338,6 @@ class Game(arcade.Window):
                             for y in range(0, self.map_matrix[i][j].height + 1):  # right
                                 coordinate_list += [(i * TILE_SIZE * ROOM_SIZE + self.map_matrix[i][j].width * TILE_SIZE,
                                                      y * TILE_SIZE + j * TILE_SIZE * ROOM_SIZE)]
-# родительская ширина и высота криво генерит
                     if i - 1 >= 0:
                         if self.map_matrix[i - 1][j].room_id == self.map_matrix[i][j].room_id:
                             for y in range(0, self.map_matrix[i][j].height - self.map_matrix[i - 1][j].height): # left
@@ -350,8 +347,8 @@ class Game(arcade.Window):
                             for y in range(0, self.map_matrix[i][j].height + 1):  # left
                                 coordinate_list += [(i * TILE_SIZE * ROOM_SIZE,
                                                      y * TILE_SIZE + j * TILE_SIZE * ROOM_SIZE)]
-
-                    if j + 1 < ROOM_COUNT: # сверху карты можно выйти (и справа)
+#сверху карты можно выйти (и справа) из-за нерабочего бордера/отсутствия генерации с края карты (условие j+1<ROOM_COUNT)
+                    if j + 1 < ROOM_COUNT:
                         if self.map_matrix[i][j + 1].room_id == self.map_matrix[i][j].room_id:
                             for x in range(0, self.map_matrix[i][j].width - self.map_matrix[i][j + 1].width):  # up
                                 coordinate_list += [((self.map_matrix[i][j].width - x) * TILE_SIZE + i * TILE_SIZE * ROOM_SIZE,
