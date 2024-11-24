@@ -6,7 +6,7 @@ import random
 PATH = ''  # A:\ProjectGame\RmPG\\'
 
 SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 800
+SCREEN_HEIGHT = 600
 
 BACKGROUND_TEXTURE_SCALING = 1
 BORDER_SCALING = 0.1
@@ -21,10 +21,13 @@ UP_LEFT_FACING = UP_FACING = UP_RIGHT_FACING = 2
 DOWN_FACING = None
 
 WALL_TEXTURE = 1024
-MAP_SIZE = WALL_TEXTURE * 5  # *1000+ supported (*300 recommended maximum)
-TILE_SIZE = WALL_TEXTURE
-CORRIDOR_SIZE = 200
-MAX_TILES_IN_ROOM = 4
+TILE_SIZE = 100
+MAX_TILES_IN_ROOM = 3
+ROOM_SIZE = 5 # tiles
+MIN_ROOM_SIZE = ROOM_SIZE//2 + 1
+MAP_SIZE = ROOM_SIZE * TILE_SIZE * 25  # *1000+ supported (*300 recommended maximum)
+ROOM_COUNT = MAP_SIZE // (ROOM_SIZE * TILE_SIZE)
+
 WALLS_SCALING = 0.1
 
 
@@ -105,24 +108,33 @@ class Player(Entity):
 
 
 class Tile:
-    def __init__(self, width=800, height=800):
+    def __init__(self, width=TILE_SIZE, height=TILE_SIZE):
         self.width = width
         self.height = height
-        self.exist = False
-        self.visited = False
         self.room_id = 0
 
         # clockwise
-        self.right = height
-        self.left = height
-        self.up = width
-        self.down = width
+
 
         # counterclockwise
         self.right_backward = 0
         self.left_backward = 0
         self.up_backward = 0
         self.down_backward = width
+
+
+class Room:
+    def __init__(self, width=ROOM_SIZE, height=ROOM_SIZE):
+        self.width = width
+        self.height = height
+        self.exist = False
+        self.visited = False
+        self.room_id = 0
+
+        self.right = False
+        self.left = False
+        self.up = False
+        self.down = False
 
 
 class Game(arcade.Window):
@@ -140,7 +152,6 @@ class Game(arcade.Window):
         self.background_sprites_matrix = None
 
         self.map_matrix = None
-        self.tiles_count = None
 
         self.camera = None
 
@@ -223,14 +234,9 @@ class Game(arcade.Window):
         self.scene.add_sprite_list(name, True, border_list)
 
     def map_generator(self):
-        self.tiles_count = MAP_SIZE // TILE_SIZE
-        min_size = TILE_SIZE // 2 + CORRIDOR_SIZE // 2
+        min_size = ROOM_SIZE // 2
         # сначала заполнять None, потом рандомить Tile
-        self.map_matrix = [[
-            Tile(width=random.randint(min_size, TILE_SIZE) // 10 * 10,
-                 height=random.randint(min_size, TILE_SIZE) // 10 * 10)
-            for _ in range(self.tiles_count)]
-            for _ in range(self.tiles_count)]
+        self.map_matrix = [[Room() for _ in range(ROOM_COUNT)] for _ in range(ROOM_COUNT)]
 
         self.map_matrix[0][0].exist = True
         self.map_matrix[0][0].visited = True
@@ -238,15 +244,16 @@ class Game(arcade.Window):
         self.create_room(i=0, j=0)
 
         last_id = self.map_matrix[0][0].room_id
-        for i in range(self.tiles_count):
-            for j in range(self.tiles_count):
+        for i in range(ROOM_COUNT):
+            for j in range(ROOM_COUNT):
                 if not self.map_matrix[i][j].visited:
-                    self.map_matrix[i][j].exist = random.getrandbits(1)
                     self.map_matrix[i][j].visited = True
-                    if self.map_matrix[i][j].exist:
+                    if random.getrandbits(1):
+                        self.map_matrix[i][j].exist = True
                         last_id += 1
                         self.map_matrix[i][j].room_id = last_id
                         self.create_room(i, j)
+        self.neighbour_check()
 
     def create_room(self, i, j, current_count=1):
         queue = [(i, j)]
@@ -258,133 +265,113 @@ class Game(arcade.Window):
             j = queue[pointer][1]
 
             if current_count == MAX_TILES_IN_ROOM: break
-            if i + 1 < self.tiles_count:
+            if i + 1 < ROOM_COUNT:
                 if not self.map_matrix[i + 1][j].visited:
                     self.map_matrix[i + 1][j].visited = True
-                    self.map_matrix[i + 1][j].exist = random.getrandbits(1)
-                    if self.map_matrix[i + 1][j].exist:
+                    if random.getrandbits(1):
+                        self.map_matrix[i + 1][j].exist = True
+                        self.map_matrix[i + 1][j].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
+                        self.map_matrix[i + 1][j].height = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
                         self.map_matrix[i + 1][j].room_id = self.map_matrix[i][j].room_id
                         current_count += 1
                         queue.append((i + 1, j))
-                        self.neighbour_check(i + 1, j)
 
             if current_count == MAX_TILES_IN_ROOM: break
             if i - 1 >= 0:
                 if not self.map_matrix[i - 1][j].visited:
                     self.map_matrix[i - 1][j].visited = True
-                    self.map_matrix[i - 1][j].exist = random.getrandbits(1)
-                    if self.map_matrix[i - 1][j].exist:
+                    if random.getrandbits(1):
+                        self.map_matrix[i - 1][j].exist = True
+                        self.map_matrix[i - 1][j].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
+                        self.map_matrix[i - 1][j].height = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
                         self.map_matrix[i - 1][j].room_id = self.map_matrix[i][j].room_id
                         current_count += 1
                         queue.append((i - 1, j))
-                        self.neighbour_check(i - 1, j)
 
             if current_count == MAX_TILES_IN_ROOM: break
-            if j + 1 < self.tiles_count:
+            if j + 1 < ROOM_COUNT:
                 if not self.map_matrix[i][j + 1].visited:
                     self.map_matrix[i][j + 1].visited = True
-                    self.map_matrix[i][j + 1].exist = random.getrandbits(1)
-                    if self.map_matrix[i][j + 1].exist:
+                    if random.getrandbits(1):
+                        self.map_matrix[i][j + 1].exist = True
+                        self.map_matrix[i][j + 1].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
+                        self.map_matrix[i][j + 1].height = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
                         self.map_matrix[i][j + 1].room_id = self.map_matrix[i][j].room_id
                         current_count += 1
                         queue.append((i, j + 1))
-                        self.neighbour_check(i, j + 1)
 
             if current_count == MAX_TILES_IN_ROOM: break
             if j - 1 >= 0:
                 if not self.map_matrix[i][j - 1].visited:
                     self.map_matrix[i][j - 1].visited = True
-                    self.map_matrix[i][j - 1].exist = random.getrandbits(1)
-                    if self.map_matrix[i][j - 1].exist:
+                    if random.getrandbits(1):
+                        self.map_matrix[i][j - 1].exist = True
+                        self.map_matrix[i][j - 1].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
+                        self.map_matrix[i][j - 1].height = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
                         self.map_matrix[i][j - 1].room_id = self.map_matrix[i][j].room_id
                         current_count += 1
                         queue.append((i, j - 1))
-                        self.neighbour_check(i, j - 1)
 
             if pointer == len(queue) - 1: processing = False
             pointer += 1
 
-    def neighbour_check(self, i, j):
-        if i + 1 < self.tiles_count:  # r
-            if self.map_matrix[i + 1][j].room_id == self.map_matrix[i][j].room_id:
-                # self.map_matrix[i + 1][j].right = self.map_matrix[i][j].height
-                self.map_matrix[i + 1][j].height = self.map_matrix[i][j].height
-                self.map_matrix[i + 1][j].left = 0
-                self.map_matrix[i][j].right = 0
+    def neighbour_check(self):
+        for i in range(ROOM_COUNT-1):
+            for j in range(ROOM_COUNT-1):
+                if self.map_matrix[i + 1][j].room_id == self.map_matrix[i][j].room_id:
+                    self.map_matrix[i][j].height = self.map_matrix[i + 1][j].height
 
-                self.map_matrix[i][j].up = TILE_SIZE
-                self.map_matrix[i][j].down = TILE_SIZE
-
-        if i - 1 >= 0:  # l
-            if self.map_matrix[i - 1][j].room_id == self.map_matrix[i][j].room_id:
-                # self.map_matrix[i-1][j].left = self.map_matrix[i][j].height
-                self.map_matrix[i - 1][j].height = self.map_matrix[i][j].height
-                self.map_matrix[i - 1][j].right = 0
-                self.map_matrix[i][j].left = 0
-
-                self.map_matrix[i - 1][j].down = TILE_SIZE
-                self.map_matrix[i - 1][j].up = TILE_SIZE
-
-        if j + 1 < self.tiles_count:  # up
-            if self.map_matrix[i][j + 1].room_id == self.map_matrix[i][j].room_id:
-                # self.map_matrix[i][j+1].up = self.map_matrix[i][j].width
-                self.map_matrix[i][j + 1].width = self.map_matrix[i][j].width
-                self.map_matrix[i][j + 1].down = 0
-                self.map_matrix[i][j].up = 0
-
-                self.map_matrix[i][j].left = TILE_SIZE
-                self.map_matrix[i][j].right = TILE_SIZE
-
-        if j - 1 >= 0:  # down
-            if self.map_matrix[i][j - 1].room_id == self.map_matrix[i][j].room_id:
-                # self.map_matrix[i][j-1].down = self.map_matrix[i][j].width
-                self.map_matrix[i][j - 1].width = self.map_matrix[i][j].width
-                self.map_matrix[i][j - 1].up = 0
-                self.map_matrix[i][j].down = 0
-
-                self.map_matrix[i][j - 1].left_backward = TILE_SIZE - self.map_matrix[i][j - 1].height
-                self.map_matrix[i][j - 1].right_backward = TILE_SIZE - self.map_matrix[i][j - 1].height
-                self.map_matrix[i][j - 1].up_backward = TILE_SIZE - self.map_matrix[i][j].width
-                # self.map_matrix[i][j - 1].left = TILE_SIZE
-                # self.map_matrix[i][j - 1].right = TILE_SIZE
+                if self.map_matrix[i][j + 1].room_id == self.map_matrix[i][j].room_id:
+                    self.map_matrix[i][j].width = self.map_matrix[i][j + 1].width
 
     def draw_map(self, name):
-        wall_list = arcade.SpriteList() #correct!!!
-        texture_width = int(WALL_TEXTURE * WALLS_SCALING)
-        half_texture = texture_width // 2
-        for i in range(self.tiles_count):
-            for j in range(self.tiles_count):
+        wall_list = arcade.SpriteList()  # correct!!
+        for i in range(ROOM_COUNT):
+            for j in range(ROOM_COUNT):
                 if self.map_matrix[i][j].exist:
-                    #wall_list = arcade.SpriteList()
                     coordinate_list = []
 
-                    for x in range(half_texture, self.map_matrix[i][j].down, texture_width):  # down
-                        coordinate_list += [(x + i * TILE_SIZE, j * TILE_SIZE)]
+                    if i + 1 < ROOM_COUNT:
+                        if self.map_matrix[i + 1][j].room_id == self.map_matrix[i][j].room_id:
+                            for y in range(0, self.map_matrix[i][j].height - self.map_matrix[i + 1][j].height): # right
+                                coordinate_list += [(i * TILE_SIZE * ROOM_SIZE + self.map_matrix[i][j].width * TILE_SIZE,
+                                                     (self.map_matrix[i][j].height - y) * TILE_SIZE + j * TILE_SIZE * ROOM_SIZE)]
+                        else:
+                            for y in range(0, self.map_matrix[i][j].height + 1):  # right
+                                coordinate_list += [(i * TILE_SIZE * ROOM_SIZE + self.map_matrix[i][j].width * TILE_SIZE,
+                                                     y * TILE_SIZE + j * TILE_SIZE * ROOM_SIZE)]
+# родительская ширина и высота криво генерит
+                    if i - 1 >= 0:
+                        if self.map_matrix[i - 1][j].room_id == self.map_matrix[i][j].room_id:
+                            for y in range(0, self.map_matrix[i][j].height - self.map_matrix[i - 1][j].height): # left
+                                coordinate_list += [(i * TILE_SIZE * ROOM_SIZE,
+                                                    (self.map_matrix[i][j].height - y) * TILE_SIZE + j * TILE_SIZE * ROOM_SIZE)]
+                        else:
+                            for y in range(0, self.map_matrix[i][j].height + 1):  # left
+                                coordinate_list += [(i * TILE_SIZE * ROOM_SIZE,
+                                                     y * TILE_SIZE + j * TILE_SIZE * ROOM_SIZE)]
 
-                    for x in range(half_texture, self.map_matrix[i][j].up, texture_width):  # up
-                        coordinate_list += [(x + i * TILE_SIZE,
-                                             j * TILE_SIZE + self.map_matrix[i][j].height)]
-
-                    for y in range(half_texture, self.map_matrix[i][j].left, texture_width):  # left
-                        coordinate_list += [(i * TILE_SIZE, y + j * TILE_SIZE)]
-
-                    for y in range(half_texture, self.map_matrix[i][j].right, texture_width):  # right
-                        coordinate_list += [(i * TILE_SIZE + self.map_matrix[i][j].width,
-                                             y + j * TILE_SIZE)]
-
-                    for y in range(half_texture, self.map_matrix[i][j].left_backward, texture_width):  # left back
-                        coordinate_list += [(i * TILE_SIZE, (j + 1) * TILE_SIZE - y)]
-
-                    for y in range(half_texture, self.map_matrix[i][j].right_backward, texture_width):  # right back
-                        coordinate_list += [(i * TILE_SIZE + self.map_matrix[i][j].width,
-                                             (j + 1) * TILE_SIZE - y)]
-
-                    for x in range(half_texture, self.map_matrix[i][j].up_backward, texture_width):  # up back
-                        coordinate_list += [((i + 1) * TILE_SIZE - x,
-                                             j * TILE_SIZE + self.map_matrix[i][j].height)]
+                    if j + 1 < ROOM_COUNT: # сверху карты можно выйти (и справа)
+                        if self.map_matrix[i][j + 1].room_id == self.map_matrix[i][j].room_id:
+                            for x in range(0, self.map_matrix[i][j].width - self.map_matrix[i][j + 1].width):  # up
+                                coordinate_list += [((self.map_matrix[i][j].width - x) * TILE_SIZE + i * TILE_SIZE * ROOM_SIZE,
+                                                     j * TILE_SIZE * ROOM_SIZE + self.map_matrix[i][j].height * TILE_SIZE)]
+                        else:
+                            for x in range(0, self.map_matrix[i][j].width + 1):  # up
+                                coordinate_list += [(x * TILE_SIZE + i * TILE_SIZE * ROOM_SIZE,
+                                                     j * TILE_SIZE * ROOM_SIZE + self.map_matrix[i][j].height * TILE_SIZE)]
+                    if j - 1 >= 0:
+                        if self.map_matrix[i][j - 1].room_id == self.map_matrix[i][j].room_id:
+                            for x in range(0, self.map_matrix[i][j].width - self.map_matrix[i][j - 1].width):  # down
+                                coordinate_list += [((self.map_matrix[i][j].width - x) * TILE_SIZE + i * TILE_SIZE * ROOM_SIZE,
+                                                     j * TILE_SIZE * ROOM_SIZE)]
+                        else:
+                            for x in range(0, self.map_matrix[i][j].width + 1):  # down
+                                coordinate_list += [(x * TILE_SIZE + i * TILE_SIZE * ROOM_SIZE,
+                                                     j * TILE_SIZE * ROOM_SIZE)]
 
                     for coordinate in coordinate_list:
-                        wall = arcade.Sprite(f"{PATH}sprites\\wall.png", WALLS_SCALING)
+                        wall = arcade.Sprite(f"{PATH}sprites\\wall.png", 0.9765625*WALLS_SCALING)
                         wall.center_x = coordinate[0]
                         wall.center_y = coordinate[1]
                         wall_list.append(wall)
