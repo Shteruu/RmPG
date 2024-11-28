@@ -1,12 +1,17 @@
+
 import arcade
+import arcade.gui
 import math
 from itertools import product
 import random
+from ctypes  import *
 
-PATH = ''  # A:\ProjectGame\RmPG\\'
 
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 800
+
+PATH = 'A:\ProjectGame\RmPG\\'  # A:\ProjectGame\RmPG\\'
+SCREEN_TITLE = "RmPG"
+SCREEN_WIDTH = windll.user32.GetSystemMetrics(0)
+SCREEN_HEIGHT = windll.user32.GetSystemMetrics(1)
 
 BACKGROUND_TEXTURE_SCALING = 1
 BORDER_SCALING = 0.1
@@ -58,7 +63,50 @@ def load_crop_texture_pair(filename, image_width, image_height, x=0, y=0):
                             height=image_height),
     ]
 
+class PauseMenu(arcade.gui.UIBoxLayout):
+    def __init__(self):
+        super().__init__()
 
+    def on_show(self):
+        arcade.set_background_color(arcade.color.AMAZON)
+        arcade.gui.UIFlatButton(text="Нажми меня!", width=200)
+        
+       
+
+    def on_close(self):
+        
+        super().on_close() 
+
+        
+        
+class StartScreen(arcade.View):
+    def __init__(self):
+        super().__init__()
+        self.background = arcade.load_texture(f"{PATH}sprites/i.png")
+    def on_show(self):
+        arcade.set_background_color(arcade.color.AMAZON)
+
+    def on_draw(self):
+        arcade.start_render()
+        arcade.draw_texture_rectangle(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT, self.background)
+        arcade.draw_text("Добро пожаловать в игру!", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 50,
+                         arcade.color.WHITE, font_size=30, anchor_x="center")
+        arcade.draw_text("Нажмите 'Пробел', чтобы начать", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 50,
+                         arcade.color.WHITE, font_size=20, anchor_x="center")
+
+    def on_key_press(self, key, modifiers):
+        if key == arcade.key.SPACE:
+            arcade.close_window()
+            window = GameView(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE )
+            window.setup()
+            arcade.run()
+
+
+
+
+
+        
+               
 class Entity(arcade.Sprite):
     def __init__(self):
         super().__init__()
@@ -87,7 +135,8 @@ class Player(Entity):
         self.correct_change_x = 0
         self.correct_change_y = 0
 
-    def update_animation(self, delta_time: float = 1 / 1):
+
+def update_animation(self, delta_time: float = 1 / 1):
         # standing still inspection
         if self.correct_change_x == 0 and self.correct_change_y == 0:
             self.texture = self.stay_texture_pair[self.facing]
@@ -116,7 +165,7 @@ class Tile:
         self.down = width
 
 
-class Game(arcade.Window):
+class GameView(arcade.Window):
 
     def __init__(self, width, height, name):
         super().__init__(width, height, name)
@@ -141,7 +190,15 @@ class Game(arcade.Window):
         self.mouse_angle = 0
         self.mouse_x = 0
         self.mouse_y = 0
+        
+        
+        self.manager = arcade.gui.UIManager()
+        self.manager.enable()
 
+        self.pause_menu = PauseMenu()
+        self.is_paused = False
+       
+    
     def setup(self):
 
         self.scene = arcade.Scene()
@@ -194,6 +251,7 @@ class Game(arcade.Window):
     def draw_background(self):
         self.background_sprites_matrix.draw()
 
+
     def setup_border(self, name):
         """
         Append an edges walls to the scene_sprite_list *name*.
@@ -207,7 +265,7 @@ class Game(arcade.Window):
                                [MAP_SIZE - x + half_texture, MAP_SIZE - half_texture],
                                [half_texture, x + half_texture]]
             for coordinate in coordinate_list:
-                wall = arcade.Sprite("sprites\\wall.png", BORDER_SCALING)
+                wall = arcade.Sprite(f"{PATH}sprites\\wall.png", BORDER_SCALING)
                 wall.center_x = coordinate[0]
                 wall.center_y = coordinate[1]
                 border_list.append(wall)
@@ -239,7 +297,7 @@ class Game(arcade.Window):
                         self.map_matrix[i][j].room_id = last_id
                         self.create_room(i, j)
 
-    def create_room(self, i, j, current_count=1):
+    def create_room(self, i, j, current_count=1):   
         queue = [(i, j)]
         pointer = 0
 
@@ -280,6 +338,7 @@ class Game(arcade.Window):
                         current_count += 1
                         queue.append((i, j+1))
                         self.neighbour_check(i, j+1)
+
 
             if current_count == MAX_TILES_IN_ROOM: break
             if j - 1 >= 0:
@@ -359,12 +418,20 @@ class Game(arcade.Window):
                         coordinate_list += [(i * TILE_SIZE + self.map_matrix[i][j].width,
                                              j * TILE_SIZE + y)]
 
-                    for coordinate in coordinate_list:
-                        wall = arcade.Sprite("sprites\\wall.png", WALLS_SCALING)
+
+        for coordinate in coordinate_list:
+                        wall = arcade.Sprite(f"{PATH}sprites\\wall.png", WALLS_SCALING)
                         wall.center_x = coordinate[0]
                         wall.center_y = coordinate[1]
                         wall_list.append(wall)
-                    self.scene.add_sprite_list(name, True, wall_list)
+        self.scene.add_sprite_list(name, True, wall_list)
+        
+    def toggle_pause(self):
+        self.is_paused = not self.is_paused
+        if self.is_paused:
+            self.manager.add(self.pause_menu)
+        else:
+            self.manager.remove(self.pause_menu)
 
     def on_mouse(self):
 
@@ -396,13 +463,20 @@ class Game(arcade.Window):
         )
 
     def on_draw(self):
+        
         arcade.start_render()
+        if self.is_paused:
+            self.pause_menu.on_show()
+        else:
+            arcade.start_render()
 
-        self.camera.use()
+            self.camera.use()
 
-        self.draw_background()
+            self.draw_background()
 
-        self.scene.draw()
+            self.scene.draw()
+            
+        
 
     def on_update(self, delta_time: float):
         self.person.center_x += self.person.correct_change_x
@@ -420,6 +494,8 @@ class Game(arcade.Window):
         self.mouse_y = y
 
     def on_key_press(self, symbol: int, modifiers: int):
+        if symbol == arcade.key.ESCAPE:
+            self.toggle_pause()
         if symbol == arcade.key.A or symbol == arcade.key.LEFT:
             self.person.correct_change_x += -PLAYER_MOVEMENT_SPEED  # x-axis
         if symbol == arcade.key.D or symbol == arcade.key.RIGHT:
@@ -438,16 +514,18 @@ class Game(arcade.Window):
             self.person.correct_change_y += PLAYER_MOVEMENT_SPEED  # y-axis
         if symbol == arcade.key.W or symbol == arcade.key.UP:
             self.person.correct_change_y += -PLAYER_MOVEMENT_SPEED  # y-axis
-
+    
+        
 
 def main():
-    window = Game(SCREEN_WIDTH, SCREEN_HEIGHT, 'RmPG')
-    window.setup()
+    window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE )
+    start_screen = StartScreen()
+    window.show_view(start_screen)
     arcade.run()
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+        main()
 
 '''
 to-do list
