@@ -20,7 +20,7 @@ TILE_SIZE = 100
 MAX_TILES_IN_ROOM = 8
 ROOM_SIZE = 5 # tiles
 MIN_ROOM_SIZE = ROOM_SIZE//2 + 1
-MAP_SIZE = ROOM_SIZE * TILE_SIZE * 5 # *1000+ supported (*300 recommended maximum)
+MAP_SIZE = ROOM_SIZE * TILE_SIZE * 2 # *1000+ supported (*300 recommended maximum)
 ROOM_COUNT = MAP_SIZE // (ROOM_SIZE * TILE_SIZE)
 
 BACKGROUND_TEXTURE_SCALING = 0.2
@@ -73,6 +73,48 @@ def append_wall_list(coordinate_list, wall_list):
         wall_list.append(wall)
 
 
+class StartMenu:
+    def __init__(self, game):
+        self.game = game
+        self.screen_texture = arcade.load_texture(f"{PATH}sprites\\start_screen.png")
+        self.ui_manager = arcade.gui.UIManager()
+        self.ui_manager.enable()
+
+        # Create buttons
+        self.start_button = arcade.gui.UIFlatButton(text="Start Game", width=200,
+                                                    x=game.width // 2 - 100, y=game.height // 2)
+        self.quit_button = arcade.gui.UIFlatButton(text="Quit", width=200,
+                                                   x=game.width // 2 - 100, y=game.height // 2 - 60)
+
+        # Add event handlers
+        self.start_button.on_click = self.on_start_game
+        self.quit_button.on_click = self.on_quit
+
+        # Add buttons to UI Manager
+        self.ui_manager.add(self.start_button)
+        self.ui_manager.add(self.quit_button)
+
+    def on_start_game(self, event):
+        self.game.current_state = "game"  # Change to game state
+        self.game.is_paused = False
+
+    @staticmethod
+    def on_quit(event):
+        arcade.close_window()
+
+    def draw(self):
+        arcade.start_render()
+        arcade.draw_texture_rectangle(SCREEN_WIDTH//2, SCREEN_HEIGHT//2,
+                                      SCREEN_WIDTH, SCREEN_HEIGHT,
+                                      self.screen_texture)
+        arcade.draw_text("Let's play?", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100, arcade.color.ANTI_FLASH_WHITE,
+                         font_size=24, anchor_x="center")
+        self.ui_manager.draw()
+
+    def update(self):
+        self.ui_manager.on_update(1 / 60)
+
+
 class PauseMenu:
     def __init__(self, game):
         self.game = game
@@ -103,11 +145,13 @@ class PauseMenu:
 
     def draw(self):
         if self.visible:
-            arcade.draw_lrtb_rectangle_filled(max(self.game.camera_x - self.inaccuracy, 0), #l
-                                              min(self.game.camera_x + SCREEN_WIDTH + self.inaccuracy, MAP_SIZE), #r
-                                              min(self.game.camera_y + SCREEN_HEIGHT + self.inaccuracy, MAP_SIZE), #u
-                                              max(self.game.camera_y - self.inaccuracy, 0), #d
-                                              (0, 0, 0, 128))
+            left = max(self.game.camera_x - self.inaccuracy, 0)
+            right = min(self.game.camera_x + SCREEN_WIDTH + self.inaccuracy, MAP_SIZE)
+            up = min(self.game.camera_y + SCREEN_HEIGHT + self.inaccuracy, MAP_SIZE)
+            down = max(self.game.camera_y - self.inaccuracy, 0)
+
+            arcade.draw_lrtb_rectangle_filled(left, right, up, down, (0, 0, 0, 128))
+
             self.ui_manager.draw()
 
     def update(self):
@@ -196,8 +240,10 @@ class Game(arcade.Window):
         self.mouse_x = 0
         self.mouse_y = 0
 
+        self.current_state = "menu"
+        self.start_menu = StartMenu(self)
         self.pause_menu = PauseMenu(self)
-        self.is_paused = False
+        self.is_paused = True
 
     def setup(self):
 
@@ -776,6 +822,12 @@ class Game(arcade.Window):
             self.person.correct_change_y = -PLAYER_MOVEMENT_SPEED
 
     def on_draw(self):
+        if self.current_state == "menu":
+            self.start_menu.draw()
+        elif self.current_state == "game":
+            self.draw_game()
+
+    def draw_game(self):
         arcade.start_render()
 
         self.camera.use()
