@@ -126,7 +126,6 @@ class Room:
         self.room_id = 0
 
 
-
 class Game(arcade.Window):
     def __init__(self, width, height, name):
         super().__init__(width, height, name)
@@ -184,7 +183,7 @@ class Game(arcade.Window):
         loading a background texture to background_sprites_matrix
         """
         # setup texture
-        self.background_texture = arcade.load_texture(f"{PATH}sprites\\fyUI_5.png")
+        self.background_texture = arcade.load_texture(f"{PATH}sprites\\ComfyUI_5.png")
 
         # scaling texture
         self.background_texture.scaled_width = int(self.background_texture.width * BACKGROUND_TEXTURE_SCALING)
@@ -421,8 +420,8 @@ class Game(arcade.Window):
         """
 
         # create a trace
-        corridors = self.dfs()
-        #corridors += self.rndadd()
+        corridors = set(self.dfs())
+        corridors.update(self.rnd_add(0.25))
 
         trace = []
         for coord in corridors:
@@ -524,7 +523,7 @@ class Game(arcade.Window):
         :param edges: utility
         :return: trase [(i1, i2), (i2, i3)...]
         """
-        graph = self.graph_builds
+        graph = self.graph
 
         if visited is None:
             visited = set()  # Создаем множество для отслеживания посещенных узлов
@@ -540,6 +539,20 @@ class Game(arcade.Window):
                 self.dfs(neighbor, visited, edges)
 
         return edges  # return trace
+
+    def rnd_add(self, chance=0.1):
+        """
+        randomly create a corridors
+        :param chance: a chance to create each corridor
+        :return: vertex connection {(i1, i2), (i2, i3)...}
+        """
+        edges = set()
+        graph = self.graph
+        for node, links in graph.items():
+            for neighbor, attributes in links.items():
+                if random.random() < chance:
+                    edges.add((node, neighbor))
+        return edges
 
     def draw_map(self, name):
         """
