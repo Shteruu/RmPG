@@ -20,7 +20,7 @@ TILE_SIZE = 100
 MAX_TILES_IN_ROOM = 8
 ROOM_SIZE = 5 # tiles
 MIN_ROOM_SIZE = ROOM_SIZE//2 + 1
-MAP_SIZE = ROOM_SIZE * TILE_SIZE * 2 # *1000+ supported (*300 recommended maximum)
+MAP_SIZE = ROOM_SIZE * TILE_SIZE * 80 # ~100 - dfs recursion limit
 ROOM_COUNT = MAP_SIZE // (ROOM_SIZE * TILE_SIZE)
 
 BACKGROUND_TEXTURE_SCALING = 0.2
@@ -245,6 +245,11 @@ class Game(arcade.Window):
         self.pause_menu = PauseMenu(self)
         self.is_paused = True
 
+        self.trinket_sprite_list = None
+        self.score = 0
+        self.trinket_amount = 0
+        self.portal = None
+
     def setup(self):
 
         self.scene = arcade.Scene()
@@ -256,6 +261,7 @@ class Game(arcade.Window):
         self.setup_background()
 
         self.scene.add_sprite_list("Walls", True)
+        self.portal = arcade.Sprite(f"{PATH}sprites\\portal.png", 0.52)
 
         self.setup_border("Walls")
 
@@ -272,6 +278,9 @@ class Game(arcade.Window):
         self.scene.add_sprite("Player", self.person)
 
         self.physics_engine = arcade.PhysicsEngineSimple(self.person, self.scene["Walls"])
+
+        self.trinket_sprite_list = arcade.SpriteList()
+        self.setup_trinket()
 
     def setup_background(self):
         """
@@ -633,6 +642,13 @@ class Game(arcade.Window):
                 edges.append((start, neighbor))  # Сохраняем пройденное ребро
                 self.dfs(neighbor, visited, edges)
 
+        last_element = list(visited)[-1]
+        lst = list(self.graph[last_element].values())
+        if not bool(lst):
+            self.portal.position = (TILE_SIZE * 4, TILE_SIZE * 4)
+        if bool(lst):
+            self.portal.position = (lst[0][0] * TILE_SIZE * ROOM_SIZE + TILE_SIZE * 2,
+                                    lst[0][1] * TILE_SIZE * ROOM_SIZE + TILE_SIZE * 2)
         return edges  # return trace
 
     def rnd_add(self, chance=0.1):
@@ -773,6 +789,46 @@ class Game(arcade.Window):
         # load all walls to scene
         self.scene.add_sprite_list(name, True, wall_list)
 
+    def setup_trinket(self):
+        item = arcade.Sprite(f"{PATH}sprites\\trinket.png", 0.2)
+        item.center_x = ROOM_SIZE*TILE_SIZE//2
+        item.center_y = ROOM_SIZE*TILE_SIZE//2
+        self.trinket_sprite_list.append(item)
+
+        self.rnd_create_trinket()
+        self.rnd_create_trinket()
+        self.rnd_create_trinket()
+        self.rnd_create_trinket()
+
+        self.scene.add_sprite_list("Trinket", True, self.trinket_sprite_list)
+        self.trinket_amount = len(self.trinket_sprite_list)
+
+    def rnd_create_trinket(self):
+        while True:
+            x = random.randint(0, ROOM_COUNT-1)
+            y = random.randint(0, ROOM_COUNT-1)
+            if self.map_matrix[x][y].exist:
+                item = arcade.Sprite(f"{PATH}sprites\\trinket.png", 0.2)
+                item.center_x = x * ROOM_SIZE * TILE_SIZE + TILE_SIZE
+                item.center_y = y * ROOM_SIZE * TILE_SIZE + TILE_SIZE
+                self.trinket_sprite_list.append(item)
+                return
+
+    def collect(self):
+        # Generate a list of all sprites that collided with the player.
+        hit_list = arcade.check_for_collision_with_list(self.person,
+                                                        self.trinket_sprite_list)
+
+        # Loop through each colliding sprite, remove it, and add to the score.
+        for trinket in hit_list:
+            trinket.remove_from_sprite_lists()
+            self.score += 1
+
+    def teleporting(self):
+        if self.person.collides_with_sprite(self.portal):
+            if self.score == self.trinket_amount:
+                arcade.close_window()
+
     def on_mouse(self):
         """
         calculate the mouse_angle relative to the player and change player facing
@@ -836,6 +892,13 @@ class Game(arcade.Window):
 
         self.scene.draw()
 
+        self.teleporting()
+        self.portal.draw()
+        arcade.draw_text(f"Score: {self.score}/{self.trinket_amount}",
+                         self.portal.center_x - self.portal.width//2,
+                         self.portal.center_y - self.portal.height,
+                         arcade.color.WHITE, 20)
+
         self.pause_menu.draw()
 
     def on_update(self, delta_time: float):
@@ -848,6 +911,7 @@ class Game(arcade.Window):
         self.person.center_y += self.person.correct_change_y
 
         self.physics_engine.update()
+        self.collect()
 
         self.on_mouse()
         self.person.update_animation(delta_time)
