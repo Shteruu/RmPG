@@ -7,7 +7,7 @@ PATH = ''  # A:\ProjectGame\RmPG\\'
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 
-PLAYER_MOVEMENT_SPEED = 10
+PLAYER_MOVEMENT_SPEED = 8
 
 RIGHT_FACING = DOWN_RIGHT_FACING = 0
 LEFT_FACING = DOWN_LEFT_FACING = 1
@@ -19,11 +19,10 @@ TILE_SIZE = 100
 MAX_TILES_IN_ROOM = 8
 ROOM_SIZE = 5 # tiles
 MIN_ROOM_SIZE = ROOM_SIZE//2 + 1
-MAP_SIZE = ROOM_SIZE * TILE_SIZE * 20 # *1000+ supported (*300 recommended maximum)
+MAP_SIZE = ROOM_SIZE * TILE_SIZE * 5 # *1000+ supported (*300 recommended maximum)
 ROOM_COUNT = MAP_SIZE // (ROOM_SIZE * TILE_SIZE)
 
-BACKGROUND_TEXTURE_SCALING = 1
-BORDER_SCALING = 0.1
+BACKGROUND_TEXTURE_SCALING = 0.2
 CAMERA_SCALING = 1
 SCALING = 1
 WALLS_SCALING = 0.9765625 # cause wall has 1024p texture and tile is 100p
@@ -62,16 +61,18 @@ def load_crop_texture_pair(filename, image_width, image_height, x=0, y=0):
     ]
 
 
-class Entity(arcade.Sprite):
-    def __init__(self):
-        super().__init__()
+def append_wall_list(coordinate_list, wall_list):
+    """
+    append walls in arcade.SpriteList by coordinates {(i1, j1), (i2, j2)...}
+    """
+    for coordinate in coordinate_list:
+        wall = arcade.Sprite(f"{PATH}sprites\\wall.png", WALLS_SCALING)
+        wall.center_x = coordinate[0]
+        wall.center_y = coordinate[1]
+        wall_list.append(wall)
 
-        self.facing = RIGHT_FACING
-        self.cur_texture = 0
 
-
-class Player(Entity):
-
+class Player(arcade.Sprite):
     def __init__(self):
         super().__init__()
         # loading textures
@@ -83,15 +84,18 @@ class Player(Entity):
             texture = load_crop_texture_pair(f"{PATH}sprites\\Forward.png", 64, 64, x=i * 64)
             self.walk_textures.append(texture)
         self.walk_textures.append(self.texture_back)
+
         # set start texture
-        self.texture = self.stay_texture_pair[RIGHT_FACING]
+        self.facing = RIGHT_FACING
+        self.texture = self.stay_texture_pair[self.facing]
+        self.cur_texture = 0
 
         # for Player movement
         self.correct_change_x = 0
         self.correct_change_y = 0
 
-    def update_animation(self, delta_time: float = 1 / 1):
-        # standing still inspection
+    def update_animation(self, delta_time: float = 1 / 60):
+        # standing-still inspection
         if self.correct_change_x == 0 and self.correct_change_y == 0:
             self.texture = self.stay_texture_pair[self.facing]
             return
@@ -122,27 +126,26 @@ class Room:
         self.room_id = 0
 
 
-class Game(arcade.Window):
 
+class Game(arcade.Window):
     def __init__(self, width, height, name):
         super().__init__(width, height, name)
 
         self.person = None
 
-        self.physics_engine = None
-
         self.scene = None
+        self.camera = None
+
+        self.camera_x = 0
+        self.camera_y = 0
+
+        self.physics_engine = None
 
         self.background_texture = None
         self.background_sprites_matrix = None
 
         self.map_matrix = None
         self.graph = None
-
-        self.camera = None
-
-        self.camera_x = 0
-        self.camera_y = 0
 
         self.mouse_angle = 0
         self.mouse_x = 0
@@ -159,27 +162,29 @@ class Game(arcade.Window):
         self.setup_background()
 
         self.scene.add_sprite_list("Walls", True)
-        #self.setup_border("Walls")
+
+        self.setup_border("Walls")
 
         self.map_generator()
         self.graph = self.graph_builds
-
         self.draw_map("Walls")
 
         self.scene.add_sprite_list("Player")
         self.person = Player()
-        self.person.center_x = 1000
-        self.person.center_y = 1000
+        self.person.center_x = TILE_SIZE * 1.5
+        self.person.center_y = TILE_SIZE * 1.5
         self.person.center = self.person.center_x, self.person.center_y
 
         self.scene.add_sprite("Player", self.person)
-        self.scene.add_sprite_list(f"{PATH}sprites\\Forward.png")
 
         self.physics_engine = arcade.PhysicsEngineSimple(self.person, self.scene["Walls"])
 
     def setup_background(self):
+        """
+        loading a background texture to background_sprites_matrix
+        """
         # setup texture
-        self.background_texture = arcade.load_texture(f"{PATH}sprites\\2.png")
+        self.background_texture = arcade.load_texture(f"{PATH}sprites\\fyUI_5.png")
 
         # scaling texture
         self.background_texture.scaled_width = int(self.background_texture.width * BACKGROUND_TEXTURE_SCALING)
@@ -192,8 +197,7 @@ class Game(arcade.Window):
         # setup matrix
         self.background_sprites_matrix = arcade.SpriteList()
         for x, y in product(range(num_tiles_x), range(num_tiles_y)):
-            sprite = arcade.SpriteSolidColor(self.background_texture.scaled_width,
-                                             self.background_texture.scaled_height, arcade.color.WHITE)
+            sprite = arcade.Sprite(scale=BACKGROUND_TEXTURE_SCALING)
             sprite.texture = self.background_texture
             sprite.center_x = x * self.background_texture.scaled_width + self.background_texture.scaled_width / 2
             sprite.center_y = y * self.background_texture.scaled_height + self.background_texture.scaled_height / 2
@@ -202,26 +206,43 @@ class Game(arcade.Window):
     def draw_background(self):
         self.background_sprites_matrix.draw()
 
-    def setup_border(self, name): # should just create 4 walls
+    def setup_border(self, name):
         """
         Append an edges walls to the scene_sprite_list *name*.
         """
         border_list = arcade.SpriteList()
-        texture_width = int(WALL_TEXTURE * BORDER_SCALING)
-        half_texture = texture_width // 2 + 1
-        for x in range(0, MAP_SIZE, texture_width):
-            coordinate_list = [[x + half_texture, half_texture],
-                               [MAP_SIZE - half_texture, x + half_texture],
-                               [MAP_SIZE - x + half_texture, MAP_SIZE - half_texture],
-                               [half_texture, x + half_texture]]
-            for coordinate in coordinate_list:
-                wall = arcade.Sprite(f"{PATH}sprites\\wall.png", BORDER_SCALING)
-                wall.center_x = coordinate[0]
-                wall.center_y = coordinate[1]
-                border_list.append(wall)
+        half = ROOM_SIZE * TILE_SIZE//2
+        for i in range(ROOM_COUNT):
+            # down
+            wall = arcade.SpriteSolidColor(width=ROOM_SIZE*TILE_SIZE, height=50,
+                                           color=arcade.color.BOSTON_UNIVERSITY_RED)
+            wall.set_position(half + i * ROOM_SIZE * TILE_SIZE, -25)
+            border_list.append(wall)
+
+            # up
+            wall = arcade.SpriteSolidColor(width=ROOM_SIZE*TILE_SIZE, height=50,
+                                           color=arcade.color.BOSTON_UNIVERSITY_RED)
+            wall.set_position(half + i * ROOM_SIZE * TILE_SIZE, MAP_SIZE+25)
+            border_list.append(wall)
+
+            # left
+            wall = arcade.SpriteSolidColor(width=50, height=ROOM_SIZE*TILE_SIZE,
+                                           color=arcade.color.BOSTON_UNIVERSITY_RED)
+            wall.set_position(-25, half + i * ROOM_SIZE * TILE_SIZE)
+            border_list.append(wall)
+
+            # right
+            wall = arcade.SpriteSolidColor(width=50, height=ROOM_SIZE*TILE_SIZE,
+                                           color=arcade.color.BOSTON_UNIVERSITY_RED)
+            wall.set_position(MAP_SIZE+25, half + i * ROOM_SIZE * TILE_SIZE)
+            border_list.append(wall)
+
         self.scene.add_sprite_list(name, True, border_list)
 
     def map_generator(self):
+        """
+        randomly generate room matrix
+        """
         self.map_matrix = [[Room() for _ in range(ROOM_COUNT)] for _ in range(ROOM_COUNT)]
 
         self.map_matrix[0][0].exist = True
@@ -242,6 +263,9 @@ class Game(arcade.Window):
         self.neighbour_check()
 
     def create_room(self, i, j, current_count=1):
+        """
+        creates small rooms around and gathers them into one large room
+        """
         queue = [(i, j)]
         pointer = 0
 
@@ -250,11 +274,12 @@ class Game(arcade.Window):
             i = queue[pointer][0]
             j = queue[pointer][1]
 
-            if current_count == MAX_TILES_IN_ROOM: break
+            if current_count == MAX_TILES_IN_ROOM: break # reinsurance
             if i + 1 < ROOM_COUNT:
                 if not self.map_matrix[i + 1][j].visited:
                     self.map_matrix[i + 1][j].visited = True
-                    if random.getrandbits(1):
+                    # if current_count >= MAX_TILES_IN_ROOM generator will stop
+                    if random.getrandbits(MAX_TILES_IN_ROOM)//current_count:
                         self.map_matrix[i + 1][j].exist = True
                         self.map_matrix[i][j].width = ROOM_SIZE
                         self.map_matrix[i + 1][j].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
@@ -267,7 +292,7 @@ class Game(arcade.Window):
             if i - 1 >= 0:
                 if not self.map_matrix[i - 1][j].visited:
                     self.map_matrix[i - 1][j].visited = True
-                    if random.getrandbits(1):
+                    if random.getrandbits(MAX_TILES_IN_ROOM)//current_count:
                         self.map_matrix[i - 1][j].exist = True
                         self.map_matrix[i - 1][j].width = ROOM_SIZE
                         self.map_matrix[i - 1][j].height = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
@@ -279,7 +304,7 @@ class Game(arcade.Window):
             if j + 1 < ROOM_COUNT:
                 if not self.map_matrix[i][j + 1].visited:
                     self.map_matrix[i][j + 1].visited = True
-                    if random.getrandbits(1):
+                    if random.getrandbits(MAX_TILES_IN_ROOM)//current_count:
                         self.map_matrix[i][j + 1].exist = True
                         self.map_matrix[i][j].height = ROOM_SIZE
                         self.map_matrix[i][j + 1].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
@@ -292,7 +317,7 @@ class Game(arcade.Window):
             if j - 1 >= 0:
                 if not self.map_matrix[i][j - 1].visited:
                     self.map_matrix[i][j - 1].visited = True
-                    if random.getrandbits(1):
+                    if random.getrandbits(MAX_TILES_IN_ROOM)//current_count:
                         self.map_matrix[i][j - 1].exist = True
                         self.map_matrix[i][j - 1].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
                         self.map_matrix[i][j - 1].height = ROOM_SIZE
@@ -305,28 +330,40 @@ class Game(arcade.Window):
 
     def neighbour_check(self):
         """
-        Final check and rooms rebuild
+        Final lick check and rooms rebuild
         """
         for i in range(ROOM_COUNT-1):
             for j in range(ROOM_COUNT-1):
+
                 f1 = f2 = False
                 if self.map_matrix[i + 1][j].room_id == self.map_matrix[i][j].room_id: #right check
                     f1 = True
                 if self.map_matrix[i][j + 1].room_id == self.map_matrix[i][j].room_id: #up check
                     f2 = True
-                if f1 and not f2:
+
+                if f1 and not f2: # only right
                     self.map_matrix[i][j].height = self.map_matrix[i + 1][j].height
                     self.map_matrix[i][j].width = ROOM_SIZE #necessary part, bag fix
-                if f2 and not f1:
+
+                if f2 and not f1: # only up
                     self.map_matrix[i][j].width = self.map_matrix[i][j + 1].width
                 if f1 and f2:
                     self.map_matrix[i][j].height = ROOM_SIZE
                     self.map_matrix[i][j].width = ROOM_SIZE
 
+        for i in range(ROOM_COUNT - 1): # right edge check
+            if self.map_matrix[i + 1][ROOM_COUNT-1].room_id == self.map_matrix[i][ROOM_COUNT-1].room_id:
+                self.map_matrix[i][ROOM_COUNT-1].width = ROOM_SIZE  # necessary part, bag fix
+
+        for j in range(ROOM_COUNT - 1): #up edge check
+            if self.map_matrix[ROOM_COUNT-1][j + 1].room_id == self.map_matrix[ROOM_COUNT-1][j].room_id:
+                self.map_matrix[ROOM_COUNT-1][j].heigth = ROOM_SIZE  # necessary part, bag fix
+
     @property
     def graph_builds(self):
         """
         Create a graph from Room matrix
+        :return: a graph from dictionaries
         """
 
         '''
@@ -339,6 +376,7 @@ class Game(arcade.Window):
         for x in range(self.get_max_room_id()):
             graph[x + 1] = {}
 
+        previous_i, previous_j = 0, 0
         # vertical relation
         for i in range(ROOM_COUNT):
             previous_id = None
@@ -376,7 +414,13 @@ class Game(arcade.Window):
     def get_max_room_id(self):
         return max([self.map_matrix[i][j].room_id for i in range(ROOM_COUNT) for j in range(ROOM_COUNT)])
 
-    def create_corridors(self, name):
+    def create_corridors(self):
+        """
+        creates corridors along the specified trace in graph
+        :return: corridor coordinates
+        """
+
+        # create a trace
         corridors = self.dfs()
         #corridors += self.rndadd()
 
@@ -385,6 +429,7 @@ class Game(arcade.Window):
             trace.append(self.graph[coord[0]][coord[1]])
             trace.append(self.graph[coord[1]][coord[0]])
 
+        # create corridors
         corridors_coordinates = []
         half_room = ROOM_SIZE // 2
         for value in trace:
@@ -406,21 +451,29 @@ class Game(arcade.Window):
                     corridors_coordinates.append(((i * ROOM_SIZE + self.map_matrix[i][j].width) * TILE_SIZE,
                                                   j * TILE_SIZE * ROOM_SIZE + half_room * TILE_SIZE))
 
-        self.draw_corridors(corridors_coordinates, name)
         return corridors_coordinates
 
-    def draw_corridors(self, corridors_coordinates, name):
+    @staticmethod
+    def draw_corridors(corridors_coordinates):
+        """
+        builds corridor walls according to the coordinates
+        :param corridors_coordinates:
+        :return: a corridor's walls coordinates
+        """
         corridor_list = arcade.SpriteList()
         coordinate_list_vert = set()
         coordinate_list_horiz = set()
+
+        # setup
         for i in range(len(corridors_coordinates)//2):
+            # horizontal
             if corridors_coordinates[i*2][0] == corridors_coordinates[i*2+1][0]:
                 x = corridors_coordinates[i*2][0]
                 m1 = min(corridors_coordinates[i * 2][1], corridors_coordinates[i * 2 + 1][1])
                 m2 = max(corridors_coordinates[i * 2][1], corridors_coordinates[i * 2 + 1][1])
                 for y in range(m1, m2+1, TILE_SIZE):
                     coordinate_list_vert.add((x, y))
-
+            # vertical
             if corridors_coordinates[i * 2][1] == corridors_coordinates[i * 2 + 1][1]:
                 y = corridors_coordinates[i * 2][1]
                 m1 = min(corridors_coordinates[i * 2][0], corridors_coordinates[i * 2 + 1][0])
@@ -428,10 +481,12 @@ class Game(arcade.Window):
                 for x in range(m1, m2+1, TILE_SIZE):
                     coordinate_list_horiz.add((x, y))
 
+        # removing crossed tiles
         coordinate_remove = coordinate_list_horiz & coordinate_list_vert
         coordinate_list_horiz -= coordinate_remove
         coordinate_list_vert -= coordinate_remove
 
+        # append vertical walls
         for coordinate in coordinate_list_vert:
             wall_l = arcade.Sprite(f"{PATH}sprites\\wall.png", WALLS_SCALING,
                                    image_width=112, image_height=1024)
@@ -445,6 +500,7 @@ class Game(arcade.Window):
             corridor_list.append(wall_l)
             corridor_list.append(wall_r)
 
+        # append horizontal walls
         for coordinate in coordinate_list_horiz:
             wall_u = arcade.Sprite(f"{PATH}sprites\\wall.png", WALLS_SCALING,
                                    image_width=1024, image_height=112)
@@ -458,9 +514,16 @@ class Game(arcade.Window):
             corridor_list.append(wall_u)
             corridor_list.append(wall_d)
 
-        self.scene.add_sprite_list("Walls", True, corridor_list)
+        return corridor_list
 
     def dfs(self, start=1, visited=None, edges=None):
+        """
+        Deep-first-search
+        :param start: start vertex
+        :param visited: utility
+        :param edges: utility
+        :return: trase [(i1, i2), (i2, i3)...]
+        """
         graph = self.graph_builds
 
         if visited is None:
@@ -479,113 +542,133 @@ class Game(arcade.Window):
         return edges  # return trace
 
     def draw_map(self, name):
+        """
+        Adding walls sprites of rooms and corridors to scene.sprite_list name
+        :param name: a name of scene.sprite_list which contains walls
+        """
         wall_list = arcade.SpriteList()  # correct!!
         coordinate_list = []
+        # setup walls
         for i in range(ROOM_COUNT):
             for j in range(ROOM_COUNT):
                 if self.map_matrix[i][j].exist:
                     if i + 1 < ROOM_COUNT:
                         if self.map_matrix[i + 1][j].room_id == self.map_matrix[i][j].room_id:
                             for y in range(0, self.map_matrix[i][j].height - self.map_matrix[i + 1][j].height): # right
-                                coordinate_list += [(i * TILE_SIZE * ROOM_SIZE + self.map_matrix[i][j].width * TILE_SIZE,
-                                                     (self.map_matrix[i][j].height - y) * TILE_SIZE + j * TILE_SIZE * ROOM_SIZE)]
+
+                                coordinate_list += [(i * TILE_SIZE * ROOM_SIZE +
+                                                     self.map_matrix[i][j].width * TILE_SIZE,
+
+                                                     (self.map_matrix[i][j].height - y) * TILE_SIZE +
+                                                     j * TILE_SIZE * ROOM_SIZE)]
                         else:
                             for y in range(0, self.map_matrix[i][j].height + 1):  # right
-                                coordinate_list += [(i * TILE_SIZE * ROOM_SIZE + self.map_matrix[i][j].width * TILE_SIZE,
-                                                     y * TILE_SIZE + j * TILE_SIZE * ROOM_SIZE)]
+
+                                coordinate_list += [(i * TILE_SIZE * ROOM_SIZE +
+                                                     self.map_matrix[i][j].width * TILE_SIZE,
+
+                                                     y * TILE_SIZE +
+                                                     j * TILE_SIZE * ROOM_SIZE)]
                     if i - 1 >= 0:
                         if self.map_matrix[i - 1][j].room_id == self.map_matrix[i][j].room_id:
                             for y in range(0, self.map_matrix[i][j].height - self.map_matrix[i - 1][j].height): # left
+
                                 coordinate_list += [(i * TILE_SIZE * ROOM_SIZE,
-                                                     (self.map_matrix[i][j].height - y) * TILE_SIZE + j * TILE_SIZE * ROOM_SIZE)]
+
+                                                     (self.map_matrix[i][j].height - y) * TILE_SIZE +
+                                                     j * TILE_SIZE * ROOM_SIZE)]
                         else:
                             for y in range(0, self.map_matrix[i][j].height + 1):  # left
+
                                 coordinate_list += [(i * TILE_SIZE * ROOM_SIZE,
-                                                     y * TILE_SIZE + j * TILE_SIZE * ROOM_SIZE)]
+
+                                                     y * TILE_SIZE +
+                                                     j * TILE_SIZE * ROOM_SIZE)]
                     if j + 1 < ROOM_COUNT:
                         if self.map_matrix[i][j + 1].room_id == self.map_matrix[i][j].room_id:
                             for x in range(0, self.map_matrix[i][j].width - self.map_matrix[i][j + 1].width):  # up
-                                coordinate_list += [((self.map_matrix[i][j].width - x) * TILE_SIZE + i * TILE_SIZE * ROOM_SIZE,
-                                                     j * TILE_SIZE * ROOM_SIZE + self.map_matrix[i][j].height * TILE_SIZE)]
+
+                                coordinate_list += [((self.map_matrix[i][j].width - x) * TILE_SIZE +
+                                                     i * TILE_SIZE * ROOM_SIZE,
+
+                                                     j * TILE_SIZE * ROOM_SIZE +
+                                                     self.map_matrix[i][j].height * TILE_SIZE)]
                         else:
                             for x in range(0, self.map_matrix[i][j].width + 1):  # up
-                                coordinate_list += [(x * TILE_SIZE + i * TILE_SIZE * ROOM_SIZE,
-                                                     j * TILE_SIZE * ROOM_SIZE + self.map_matrix[i][j].height * TILE_SIZE)]
+
+                                coordinate_list += [(x * TILE_SIZE +
+                                                     i * TILE_SIZE * ROOM_SIZE,
+
+                                                     j * TILE_SIZE * ROOM_SIZE +
+                                                     self.map_matrix[i][j].height * TILE_SIZE)]
                     if j - 1 >= 0:
                         if self.map_matrix[i][j - 1].room_id == self.map_matrix[i][j].room_id:
                             for x in range(0, self.map_matrix[i][j].width - self.map_matrix[i][j - 1].width):  # down
-                                coordinate_list += [((self.map_matrix[i][j].width - x) * TILE_SIZE + i * TILE_SIZE * ROOM_SIZE,
+
+                                coordinate_list += [((self.map_matrix[i][j].width - x) * TILE_SIZE +
+                                                     i * TILE_SIZE * ROOM_SIZE,
+
                                                      j * TILE_SIZE * ROOM_SIZE)]
                         else:
                             for x in range(0, self.map_matrix[i][j].width + 1):  # down
-                                coordinate_list += [(x * TILE_SIZE + i * TILE_SIZE * ROOM_SIZE,
+
+                                coordinate_list += [(x * TILE_SIZE +
+                                                     i * TILE_SIZE * ROOM_SIZE,
+
                                                      j * TILE_SIZE * ROOM_SIZE)]
 
-        corridors = self.create_corridors(name)
+        # remove tiles from corridors positions
+        corridors = self.create_corridors()
         coordinate_list = set(coordinate_list) - set(corridors)
 
-        for coordinate in coordinate_list:
-            wall = arcade.Sprite(f"{PATH}sprites\\wall.png", WALLS_SCALING)
-            wall.center_x = coordinate[0]
-            wall.center_y = coordinate[1]
-            wall_list.append(wall)
+        # append walls
+        append_wall_list(coordinate_list, wall_list)
 
+        # append edges walls
         i = 0
-        for j in range(ROOM_COUNT):
+        for j in range(ROOM_COUNT): # left (map edge)
             coordinate_list = []
-            for y in range(0, self.map_matrix[i][j].height + 1):  # left (map edge)
+            for y in range(0, self.map_matrix[i][j].height + 1):
                 coordinate_list += [(i * TILE_SIZE * ROOM_SIZE,
                                      y * TILE_SIZE + j * TILE_SIZE * ROOM_SIZE)]
-            for coordinate in coordinate_list:
-                wall = arcade.Sprite(f"{PATH}sprites\\wall.png", WALLS_SCALING)
-                wall.center_x = coordinate[0]
-                wall.center_y = coordinate[1]
-                wall_list.append(wall)
+            append_wall_list(coordinate_list, wall_list)
 
         i = ROOM_COUNT - 1
-        for j in range(ROOM_COUNT):
+        for j in range(ROOM_COUNT): # right (map edge)
             coordinate_list = []
-            for y in range(0, self.map_matrix[i][j].height + 1):  # right (map edge)
+            for y in range(0, self.map_matrix[i][j].height + 1):
                 coordinate_list += [(i * TILE_SIZE * ROOM_SIZE + self.map_matrix[i][j].width * TILE_SIZE,
                                      y * TILE_SIZE + j * TILE_SIZE * ROOM_SIZE)]
-            for coordinate in coordinate_list:
-                wall = arcade.Sprite(f"{PATH}sprites\\wall.png", WALLS_SCALING)
-                wall.center_x = coordinate[0]
-                wall.center_y = coordinate[1]
-                wall_list.append(wall)
+            append_wall_list(coordinate_list, wall_list)
 
         j = 0
-        for i in range(ROOM_COUNT):
+        for i in range(ROOM_COUNT): # down (map edge)
             coordinate_list = []
-            for x in range(0, self.map_matrix[i][j].width + 1):  # down (map edge)
+            for x in range(0, self.map_matrix[i][j].width + 1):
                 coordinate_list += [(x * TILE_SIZE + i * TILE_SIZE * ROOM_SIZE,
                                      j * TILE_SIZE * ROOM_SIZE)]
-            for coordinate in coordinate_list:
-                wall = arcade.Sprite(f"{PATH}sprites\\wall.png", WALLS_SCALING)
-                wall.center_x = coordinate[0]
-                wall.center_y = coordinate[1]
-                wall_list.append(wall)
+            append_wall_list(coordinate_list, wall_list)
 
         j = ROOM_COUNT - 1
-        for i in range(ROOM_COUNT):
+        for i in range(ROOM_COUNT): # up (map edge)
             coordinate_list = []
-            for x in range(0, self.map_matrix[i][j].width + 1):  # up (map edge)
+            for x in range(0, self.map_matrix[i][j].width + 1):
                 coordinate_list += [(x * TILE_SIZE + i * TILE_SIZE * ROOM_SIZE,
                                      j * TILE_SIZE * ROOM_SIZE + self.map_matrix[i][j].height * TILE_SIZE)]
-            for coordinate in coordinate_list:
-                wall = arcade.Sprite(f"{PATH}sprites\\wall.png", WALLS_SCALING)
-                wall.center_x = coordinate[0]
-                wall.center_y = coordinate[1]
-                wall_list.append(wall)
+            append_wall_list(coordinate_list, wall_list)
 
-        wall_u = arcade.Sprite(f"{PATH}sprites\\wall.png", WALLS_SCALING,
-                               image_width=1024, image_height=112)
-        wall_u.center_x = 300
-        wall_u.center_y = 300
-        wall_list.append(wall_u)
+        # append corridors
+        corridor_tiles = self.draw_corridors(corridors)
+        for tile in corridor_tiles:
+            wall_list.append(tile)
+
+        # load all walls to scene
         self.scene.add_sprite_list(name, True, wall_list)
 
     def on_mouse(self):
+        """
+        calculate the mouse_angle relative to the player and change player facing
+        """
 
         self.mouse_angle = math.atan2(self.mouse_y - (self.person.center_y - self.camera_y),
                                       self.mouse_x - (self.person.center_x - self.camera_x)) * 180 / math.pi
@@ -600,6 +683,9 @@ class Game(arcade.Window):
         self.person.update_animation(1 / 60)
 
     def camera_on_player(self):  # coordinates links to left-down corner
+        """
+        move Camera to Player
+        """
         # calculate camera position
         screen_x = self.person.center_x - (SCREEN_WIDTH // 2) // CAMERA_SCALING
         screen_y = self.person.center_y - (SCREEN_HEIGHT // 2) // CAMERA_SCALING
@@ -614,6 +700,19 @@ class Game(arcade.Window):
             min(0.1 * CAMERA_SCALING, 1)
         )
 
+    def max_speed_check(self):
+        """
+        checking to avoid incorrect player speed
+        """
+        if self.person.correct_change_x > PLAYER_MOVEMENT_SPEED:
+            self.person.correct_change_x = PLAYER_MOVEMENT_SPEED
+        if self.person.correct_change_y > PLAYER_MOVEMENT_SPEED:
+            self.person.correct_change_y = PLAYER_MOVEMENT_SPEED
+        if self.person.correct_change_x < -PLAYER_MOVEMENT_SPEED:
+            self.person.correct_change_x = -PLAYER_MOVEMENT_SPEED
+        if self.person.correct_change_y < -PLAYER_MOVEMENT_SPEED:
+            self.person.correct_change_y = -PLAYER_MOVEMENT_SPEED
+
     def on_draw(self):
         arcade.start_render()
 
@@ -624,6 +723,7 @@ class Game(arcade.Window):
         self.scene.draw()
 
     def on_update(self, delta_time: float):
+        self.max_speed_check()
         self.person.center_x += self.person.correct_change_x
         self.person.center_y += self.person.correct_change_y
 
@@ -668,43 +768,5 @@ def main():
 if __name__ == '__main__':
     main()
 
-'''
-to-do list
 
-classes: sprite -> entity -> enemy
-         room - map
-
-boolean WASD check ???
-max speed exception
-Map generator
-Player shooting
-UI
-Menu
-setup_textures ???
-
-room generator
-есть сетка генерации комнат 800х800, в которой генерируются части комнат
-случайный x,y размеры в пределах 
-половина сетки + корридор (200) < x,y < сетка
-корридоры строго по середине квадрата сетки
-
-генерация двумя вложенными циклами 
-    генерация вглубь комнаты, 
-    вероятность следующей комнаты умножается на номер потомка или
-    или зависит от расстояния (в клетках) до комнаты-корня
-    динамическая вероятность (что-то вроде экспаненты) вероятность//кол-во присоединенных клеток
-
-случайно вибирается одно из 2 состояний каждой стороны квадрата сетки
-- соседствует
-- не соседствует
-далее заполняется матрицей, которая проверяет есть ли связь с соседями, 
-если да, создает ещё часть комнаты
-+ проверка на лимит соседей
-Если соседей не найдено происходят проверки
-- будет ли в этом квадрате комната
-    -  рандомит связи с соседними ЕЩЁ НЕ ПРОЙДЕННЫМИ комнатами
-
-
-'''
-
-# Если одновременно нажать на W и S - нельзя ходить вбок, а если A и D, то движение вверх-вниз работает как исправить
+# Если одновременно нажать на W и S - нельзя ходить вбок, а если A и D, то движение вверх-вниз работает ? как исправить
