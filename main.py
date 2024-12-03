@@ -3,10 +3,11 @@ import arcade.gui
 import math
 from itertools import product
 import random
-PATH = ''  # A:\ProjectGame\RmPG\\'
+from ctypes  import *
+PATH = 'A:\ProjectGame\RmPG\\'  # A:\ProjectGame\RmPG\\'
 
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+SCREEN_WIDTH = windll.user32.GetSystemMetrics(0)
+SCREEN_HEIGHT = windll.user32.GetSystemMetrics(1)
 
 PLAYER_MOVEMENT_SPEED = 8
 
@@ -121,9 +122,9 @@ class PauseMenu:
         self.visible = False
         self.inaccuracy = PLAYER_MOVEMENT_SPEED*10
         self.resume_button = arcade.gui.UIFlatButton(text="Resume", width=200,
-                                                     x=game.width // 2 + 100, y=game.height // 2 + 8)
+                                                     x=game.width // 2 - 130 , y=game.height // 2 + 8)
         self.quit_button = arcade.gui.UIFlatButton(text="Quit", width=200,
-                                                   x=game.width // 2 + 100, y=game.height // 2 - 52)
+                                                   x=game.width // 2 - 130 , y=game.height // 2 - 52)
 
         # Add button callbacks
         self.resume_button.on_click = self.on_resume
@@ -157,6 +158,9 @@ class PauseMenu:
     def update(self):
         if self.visible:
             self.ui_manager.on_update(1/60)
+            
+
+def 
 
 
 class Player(arcade.Sprite):
