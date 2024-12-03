@@ -160,7 +160,48 @@ class PauseMenu:
             self.ui_manager.on_update(1/60)
             
 
-def 
+class FinallMenu:
+    def __init__(self, game):
+        self.game = game
+        self.screen_texture = arcade.load_texture(f"{PATH}sprites\\start_screen.png")
+        self.ui_manager = arcade.gui.UIManager()
+        self.ui_manager.enable()
+
+        # Create buttons
+        self.restart_button = arcade.gui.UIFlatButton(text="Restart", width=200,
+                                                    x=game.width // 2 - 100, y=game.height // 2)
+        self.quit_button = arcade.gui.UIFlatButton(text="Quit", width=200,
+                                                   x=game.width // 2 - 100, y=game.height // 2 - 60)
+
+        # Add event handlers
+        self.restart_button.on_click = self.on_restart_game
+        self.quit_button.on_click = self.on_quit
+
+        # Add buttons to UI Manager
+        self.ui_manager.add(self.restart_button)
+        self.ui_manager.add(self.quit_button)
+
+    def on_restart_game(self, event):
+        arcade.close_window()
+        window = Game(SCREEN_WIDTH, SCREEN_HEIGHT, "RmPG" )
+        window.setup()
+        arcade.run()
+
+    @staticmethod
+    def on_quit(event):
+        arcade.close_window()
+
+    def draw(self):
+        arcade.start_render()
+        arcade.draw_texture_rectangle(SCREEN_WIDTH//2, SCREEN_HEIGHT//2,
+                                      SCREEN_WIDTH, SCREEN_HEIGHT,
+                                      self.screen_texture)
+        arcade.draw_text(f"Score: {self.game.score}", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100, arcade.color.ANTI_FLASH_WHITE,
+                         font_size=24, anchor_x="center")
+        self.ui_manager.draw()
+
+    def update(self):
+        self.ui_manager.on_update(1 / 60)
 
 
 class Player(arcade.Sprite):
@@ -247,6 +288,7 @@ class Game(arcade.Window):
         self.current_state = "menu"
         self.start_menu = StartMenu(self)
         self.pause_menu = PauseMenu(self)
+        self.finall_menu = FinallMenu(self)
         self.is_paused = True
 
         self.trinket_sprite_list = None
@@ -831,7 +873,7 @@ class Game(arcade.Window):
     def teleporting(self):
         if self.person.collides_with_sprite(self.portal):
             if self.score == self.trinket_amount:
-                arcade.close_window()
+                self.current_state = "finall"
 
     def on_mouse(self):
         """
@@ -886,6 +928,8 @@ class Game(arcade.Window):
             self.start_menu.draw()
         elif self.current_state == "game":
             self.draw_game()
+        elif self.current_state == "finall":
+            self.finall_menu.draw()
 
     def draw_game(self):
         arcade.start_render()
