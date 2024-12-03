@@ -167,26 +167,17 @@ class FinallMenu:
         self.ui_manager = arcade.gui.UIManager()
         self.ui_manager.enable()
 
-        # Create buttons
-        self.restart_button = arcade.gui.UIFlatButton(text="Restart", width=200,
-                                                    x=game.width // 2 - 100, y=game.height // 2)
+       
         self.quit_button = arcade.gui.UIFlatButton(text="Quit", width=200,
                                                    x=game.width // 2 - 100, y=game.height // 2 - 60)
 
-        # Add event handlers
-        self.restart_button.on_click = self.on_restart_game
+        
         self.quit_button.on_click = self.on_quit
 
-        # Add buttons to UI Manager
-        self.ui_manager.add(self.restart_button)
+       
         self.ui_manager.add(self.quit_button)
 
-    def on_restart_game(self, event):
-        arcade.close_window()
-        window = Game(SCREEN_WIDTH, SCREEN_HEIGHT, "RmPG" )
-        window.setup()
-        arcade.run()
-
+    
     @staticmethod
     def on_quit(event):
         arcade.close_window()
