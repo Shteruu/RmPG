@@ -3,11 +3,10 @@ import arcade.gui
 import math
 from itertools import product
 import random
-from ctypes  import *
-PATH = 'A:\ProjectGame\RmPG\\'  # A:\ProjectGame\RmPG\\'
+PATH = ''  # A:\ProjectGame\RmPG\\'
 
-SCREEN_WIDTH = windll.user32.GetSystemMetrics(0)
-SCREEN_HEIGHT = windll.user32.GetSystemMetrics(1)
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
 
 PLAYER_MOVEMENT_SPEED = 8
 
@@ -21,7 +20,7 @@ TILE_SIZE = 100
 MAX_TILES_IN_ROOM = 8
 ROOM_SIZE = 5 # tiles
 MIN_ROOM_SIZE = ROOM_SIZE//2 + 1
-MAP_SIZE = ROOM_SIZE * TILE_SIZE * 80 # ~100 - dfs recursion limit
+MAP_SIZE = ROOM_SIZE * TILE_SIZE * 8 # ~100 - dfs recursion limit
 ROOM_COUNT = MAP_SIZE // (ROOM_SIZE * TILE_SIZE)
 
 BACKGROUND_TEXTURE_SCALING = 0.2
@@ -122,9 +121,9 @@ class PauseMenu:
         self.visible = False
         self.inaccuracy = PLAYER_MOVEMENT_SPEED*10
         self.resume_button = arcade.gui.UIFlatButton(text="Resume", width=200,
-                                                     x=game.width // 2 - 130 , y=game.height // 2 + 8)
+                                                     x=game.width // 2 - 130, y=game.height // 2 + 8)
         self.quit_button = arcade.gui.UIFlatButton(text="Quit", width=200,
-                                                   x=game.width // 2 - 130 , y=game.height // 2 - 52)
+                                                   x=game.width // 2 - 130, y=game.height // 2 - 52)
 
         # Add button callbacks
         self.resume_button.on_click = self.on_resume
@@ -160,23 +159,17 @@ class PauseMenu:
             self.ui_manager.on_update(1/60)
             
 
-class FinallMenu:
+class FinalMenu:
     def __init__(self, game):
         self.game = game
         self.screen_texture = arcade.load_texture(f"{PATH}sprites\\start_screen.png")
         self.ui_manager = arcade.gui.UIManager()
         self.ui_manager.enable()
 
-       
         self.quit_button = arcade.gui.UIFlatButton(text="Quit", width=200,
                                                    x=game.width // 2 - 100, y=game.height // 2 - 60)
-
-        
         self.quit_button.on_click = self.on_quit
-
-       
         self.ui_manager.add(self.quit_button)
-
     
     @staticmethod
     def on_quit(event):
@@ -187,7 +180,8 @@ class FinallMenu:
         arcade.draw_texture_rectangle(SCREEN_WIDTH//2, SCREEN_HEIGHT//2,
                                       SCREEN_WIDTH, SCREEN_HEIGHT,
                                       self.screen_texture)
-        arcade.draw_text(f"Score: {self.game.score}", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100, arcade.color.ANTI_FLASH_WHITE,
+        arcade.draw_text("See you in the new adventures!",
+                         SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100, arcade.color.ANTI_FLASH_WHITE,
                          font_size=24, anchor_x="center")
         self.ui_manager.draw()
 
@@ -279,7 +273,7 @@ class Game(arcade.Window):
         self.current_state = "menu"
         self.start_menu = StartMenu(self)
         self.pause_menu = PauseMenu(self)
-        self.finall_menu = FinallMenu(self)
+        self.final_menu = FinalMenu(self)
         self.is_paused = True
 
         self.trinket_sprite_list = None
@@ -864,7 +858,8 @@ class Game(arcade.Window):
     def teleporting(self):
         if self.person.collides_with_sprite(self.portal):
             if self.score == self.trinket_amount:
-                self.current_state = "finall"
+                self.current_state = "final"
+                self.is_paused = True
 
     def on_mouse(self):
         """
@@ -919,8 +914,8 @@ class Game(arcade.Window):
             self.start_menu.draw()
         elif self.current_state == "game":
             self.draw_game()
-        elif self.current_state == "finall":
-            self.finall_menu.draw()
+        elif self.current_state == "final":
+            self.final_menu.draw()
 
     def draw_game(self):
         arcade.start_render()
