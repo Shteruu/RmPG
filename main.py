@@ -76,7 +76,6 @@ class StartMenu:
         self.game = game
         self.screen_texture = arcade.load_texture(f"{PATH}sprites\\start_screen.png")
         self.ui_manager = arcade.gui.UIManager()
-        self.ui_manager.enable()
         self.text_color = arcade.color.ANTI_FLASH_WHITE
         self.counter_color = arcade.color.ANTI_FLASH_WHITE
 
@@ -117,6 +116,7 @@ class StartMenu:
     def on_start_game(self, event):
         self.game.current_state = "setup"  # Change to game state
         self.game.is_paused = False
+        self.ui_manager.disable()
 
     @staticmethod
     def on_quit(event):
@@ -183,13 +183,13 @@ class PauseMenu:
 
         # Create a UI container
         self.ui_manager = arcade.gui.UIManager()
-        self.ui_manager.enable()
         self.ui_manager.add(self.resume_button)
         self.ui_manager.add(self.quit_button)
 
     def on_resume(self, event):
         self.visible = False
         self.game.is_paused = False
+        self.ui_manager.disable()
 
     @staticmethod
     def on_quit(event):
@@ -216,10 +216,9 @@ class FinalMenu:
         self.game = game
         self.screen_texture = arcade.load_texture(f"{PATH}sprites\\start_screen.png")
         self.ui_manager = arcade.gui.UIManager()
-        self.ui_manager.enable()
 
         self.play_again_button = arcade.gui.UIFlatButton(text="Play again", width=200,
-                                                   x=game.width // 2 - 100, y=game.height // 2)
+                                                         x=game.width // 2 - 100, y=game.height // 2)
         self.quit_button = arcade.gui.UIFlatButton(text="Quit", width=200,
                                                    x=game.width // 2 - 100, y=game.height // 2 - 60)
 
@@ -234,7 +233,8 @@ class FinalMenu:
 
     def on_play_again(self, event):
         self.game.current_state = "menu"
-        self.game.is_paused = True
+        self.ui_manager.disable()
+        self.game.start_menu.ui_manager.enable()
 
     def draw(self):
         arcade.start_render()
@@ -291,13 +291,6 @@ class Player(arcade.Sprite):
         self.texture = self.walk_textures[self.cur_texture // 7][self.facing]
 
 
-class Tile:
-    def __init__(self, width=TILE_SIZE, height=TILE_SIZE):
-        self.width = width
-        self.height = height
-        self.room_id = 0
-
-
 class Room:
     def __init__(self, width=ROOM_SIZE, height=ROOM_SIZE):
         self.width = width
@@ -338,6 +331,7 @@ class Game(arcade.Window):
         self.start_menu = StartMenu(self)
         self.pause_menu = PauseMenu(self)
         self.final_menu = FinalMenu(self)
+        self.start_menu.ui_manager.enable()
         self.is_paused = True
 
         self.trinket_sprite_list = None
@@ -923,8 +917,10 @@ class Game(arcade.Window):
     def teleporting(self):
         if self.person.collides_with_sprite(self.portal):
             if self.score == self.trinket_amount:
-                self.current_state = "final"
-                self.is_paused = True
+                if self.current_state == "game":
+                    self.current_state = "final"
+                    self.is_paused = True
+                    self.final_menu.ui_manager.enable()
 
     def on_mouse(self):
         """
@@ -955,7 +951,7 @@ class Game(arcade.Window):
         self.camera_x = max(min(screen_x, self.map_size - SCREEN_WIDTH // CAMERA_SCALING), 0)
         self.camera_y = max(min(screen_y, self.map_size - SCREEN_HEIGHT // CAMERA_SCALING), 0)
 
-        # I don't know how it worked, most likely the coordinates of the vector are calculated depending on the screen
+        # most likely the coordinates of the vector are calculated depending on the screen
         self.camera.move_to(
             (self.camera_x * CAMERA_SCALING, self.camera_y * CAMERA_SCALING),  # vector
             min(0.1 * CAMERA_SCALING, 1)
@@ -994,7 +990,6 @@ class Game(arcade.Window):
 
         self.scene.draw()
 
-        self.teleporting()
         self.portal.draw()
         arcade.draw_text(f"Score: {self.score}/{self.trinket_amount}",
                          self.portal.center_x - self.portal.width//2,
@@ -1014,6 +1009,7 @@ class Game(arcade.Window):
 
         self.physics_engine.update()
         self.collect()
+        self.teleporting()
 
         self.on_mouse()
         self.person.update_animation(delta_time)
@@ -1021,22 +1017,18 @@ class Game(arcade.Window):
         self.camera_on_player()
 
     def on_mouse_motion(self, x, y, dx, dy):
-        if self.is_paused:
-            self.pause_menu.ui_manager.on_mouse_motion(x, y, dx, dy)  # Forward mouse motion to UI Manager
-        else:
-            self.mouse_x = x
-            self.mouse_y = y
-
-    def on_mouse_press(self, x, y, button, modifiers):
-        if self.is_paused:
-            self.pause_menu.ui_manager.on_mouse_press(x, y, button, modifiers)  # Forward mouse press to UI Manager
-        else:
-            pass
+        self.mouse_x = x
+        self.mouse_y = y
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.P or symbol == arcade.key.ESCAPE:  # Press 'P' to pause the game
-            self.is_paused = not self.is_paused
-            self.pause_menu.visible = self.is_paused
+            if self.current_state == "game":
+                self.is_paused = not self.is_paused
+                self.pause_menu.visible = self.is_paused
+                if self.is_paused:
+                    self.pause_menu.ui_manager.enable()
+                else:
+                    self.pause_menu.ui_manager.disable()
 
         if symbol == arcade.key.A or symbol == arcade.key.LEFT:
             self.person.correct_change_x += -PLAYER_MOVEMENT_SPEED  # x-axis
