@@ -23,7 +23,6 @@ MIN_ROOM_SIZE = ROOM_SIZE//2 + 1
 
 BACKGROUND_TEXTURE_SCALING = 0.2
 CAMERA_SCALING = 1
-SCALING = 1
 WALLS_SCALING = 0.9765625 # cause wall has 1024p texture and tile is 100p
 WALLS_SCALING *= 0.001*TILE_SIZE
 
@@ -377,7 +376,7 @@ class Game(arcade.Window):
         loading a background texture to background_sprites_matrix
         """
         # setup texture
-        self.background_texture = arcade.load_texture(f"{PATH}sprites\\ComfyUI_5.png")
+        self.background_texture = arcade.load_texture(f"{PATH}sprites\\background.png")
 
         # scaling texture
         self.background_texture.scaled_width = int(self.background_texture.width * BACKGROUND_TEXTURE_SCALING)
