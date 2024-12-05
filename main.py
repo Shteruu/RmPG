@@ -17,11 +17,9 @@ DOWN_FACING = None
 
 WALL_TEXTURE = 1024
 TILE_SIZE = 100
-MAX_TILES_IN_ROOM = 8
+MAX_ROOM_SECTIONS = 8
 ROOM_SIZE = 5 # tiles
 MIN_ROOM_SIZE = ROOM_SIZE//2 + 1
-MAP_SIZE = ROOM_SIZE * TILE_SIZE * 8 # ~100 - dfs recursion limit
-ROOM_COUNT = MAP_SIZE // (ROOM_SIZE * TILE_SIZE)
 
 BACKGROUND_TEXTURE_SCALING = 0.2
 CAMERA_SCALING = 1
@@ -79,35 +77,89 @@ class StartMenu:
         self.screen_texture = arcade.load_texture(f"{PATH}sprites\\start_screen.png")
         self.ui_manager = arcade.gui.UIManager()
         self.ui_manager.enable()
+        self.text_color = arcade.color.ANTI_FLASH_WHITE
+        self.counter_color = arcade.color.ANTI_FLASH_WHITE
 
         # Create buttons
-        self.start_button = arcade.gui.UIFlatButton(text="Start Game", width=200,
-                                                    x=game.width // 2 - 100, y=game.height // 2)
-        self.quit_button = arcade.gui.UIFlatButton(text="Quit", width=200,
-                                                   x=game.width // 2 - 100, y=game.height // 2 - 60)
+        self.start_button = arcade.gui.UIFlatButton(text="Start Game", width=240,
+                                                    x=game.width // 2 - 120, y=game.height // 2)
+        self.quit_button = arcade.gui.UIFlatButton(text="Quit", width=240,
+                                                   x=game.width // 2 - 120, y=game.height // 2 - 60)
+
+        # Create counter buttons
+        self.room_count = game.room_count
+        self.increase_button = arcade.gui.UIFlatButton(text=">", width=50,
+                                                       x=game.width // 2 + 30, y=game.height // 2 - 120)
+        self.decrease_button = arcade.gui.UIFlatButton(text="<", width=50,
+                                                       x=game.width // 2 - 80, y=game.height // 2 - 120)
+
+        self.much_increase_button = arcade.gui.UIFlatButton(text=">>", width=35,
+                                                            x=game.width // 2 + 85, y=game.height // 2 - 120)
+        self.much_decrease_button = arcade.gui.UIFlatButton(text="<<", width=35,
+                                                            x=game.width // 2 - 120, y=game.height // 2 - 120)
 
         # Add event handlers
         self.start_button.on_click = self.on_start_game
         self.quit_button.on_click = self.on_quit
+        self.increase_button.on_click = self.on_increase
+        self.decrease_button.on_click = self.on_decrease
+        self.much_increase_button.on_click = self.on_much_increase
+        self.much_decrease_button.on_click = self.on_much_decrease
 
         # Add buttons to UI Manager
         self.ui_manager.add(self.start_button)
         self.ui_manager.add(self.quit_button)
+        self.ui_manager.add(self.increase_button)
+        self.ui_manager.add(self.decrease_button)
+        self.ui_manager.add(self.much_increase_button)
+        self.ui_manager.add(self.much_decrease_button)
 
     def on_start_game(self, event):
-        self.game.current_state = "game"  # Change to game state
+        self.game.current_state = "setup"  # Change to game state
         self.game.is_paused = False
 
     @staticmethod
     def on_quit(event):
         arcade.close_window()
 
+    def on_increase(self, event):
+        self.game.room_count += 1
+        self.counter_check()
+
+    def on_decrease(self, event):
+        self.game.room_count -= 1
+        self.counter_check()
+
+    def on_much_increase(self, event):
+        self.game.room_count += 10
+        self.counter_check()
+
+    def on_much_decrease(self, event):
+        self.game.room_count -= 10
+        self.counter_check()
+
+    def counter_check(self):
+        if self.game.room_count < 1:
+            self.game.room_count = 1
+            self.counter_color = arcade.color.RED
+        elif self.game.room_count > 80:
+            self.game.room_count = 80
+            self.counter_color = arcade.color.RED
+        else:
+            self.counter_color = arcade.color.ANTI_FLASH_WHITE
+
     def draw(self):
         arcade.start_render()
         arcade.draw_texture_rectangle(SCREEN_WIDTH//2, SCREEN_HEIGHT//2,
                                       SCREEN_WIDTH, SCREEN_HEIGHT,
                                       self.screen_texture)
-        arcade.draw_text("Let's play?", SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100, arcade.color.ANTI_FLASH_WHITE,
+
+        arcade.draw_text("Let's play?",
+                         SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100, self.text_color,
+                         font_size=24, anchor_x="center")
+
+        arcade.draw_text(f"{self.game.room_count}",
+                         SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 105, self.counter_color,
                          font_size=24, anchor_x="center")
         self.ui_manager.draw()
 
@@ -146,8 +198,8 @@ class PauseMenu:
     def draw(self):
         if self.visible:
             left = max(self.game.camera_x - self.inaccuracy, 0)
-            right = min(self.game.camera_x + SCREEN_WIDTH + self.inaccuracy, MAP_SIZE)
-            up = min(self.game.camera_y + SCREEN_HEIGHT + self.inaccuracy, MAP_SIZE)
+            right = min(self.game.camera_x + SCREEN_WIDTH + self.inaccuracy, self.game.map_size)
+            up = min(self.game.camera_y + SCREEN_HEIGHT + self.inaccuracy, self.game.map_size)
             down = max(self.game.camera_y - self.inaccuracy, 0)
 
             arcade.draw_lrtb_rectangle_filled(left, right, up, down, (0, 0, 0, 128))
@@ -166,14 +218,23 @@ class FinalMenu:
         self.ui_manager = arcade.gui.UIManager()
         self.ui_manager.enable()
 
+        self.play_again_button = arcade.gui.UIFlatButton(text="Play again", width=200,
+                                                   x=game.width // 2 - 100, y=game.height // 2)
         self.quit_button = arcade.gui.UIFlatButton(text="Quit", width=200,
                                                    x=game.width // 2 - 100, y=game.height // 2 - 60)
+
+        self.play_again_button.on_click = self.on_play_again
         self.quit_button.on_click = self.on_quit
         self.ui_manager.add(self.quit_button)
+        self.ui_manager.add(self.play_again_button)
     
     @staticmethod
     def on_quit(event):
         arcade.close_window()
+
+    def on_play_again(self, event):
+        self.game.current_state = "menu"
+        self.game.is_paused = True
 
     def draw(self):
         arcade.start_render()
@@ -270,6 +331,9 @@ class Game(arcade.Window):
         self.mouse_x = 0
         self.mouse_y = 0
 
+        self.room_count = 10
+        self.map_size = ROOM_SIZE * TILE_SIZE * self.room_count  # ~100 - dfs recursion limit
+
         self.current_state = "menu"
         self.start_menu = StartMenu(self)
         self.pause_menu = PauseMenu(self)
@@ -312,6 +376,7 @@ class Game(arcade.Window):
 
         self.trinket_sprite_list = arcade.SpriteList()
         self.setup_trinket()
+        self.score = 0
 
     def setup_background(self):
         """
@@ -325,8 +390,8 @@ class Game(arcade.Window):
         self.background_texture.scaled_height = int(self.background_texture.height * BACKGROUND_TEXTURE_SCALING)
 
         # calculate matrix
-        num_tiles_x = MAP_SIZE // self.background_texture.scaled_width + 1
-        num_tiles_y = MAP_SIZE // self.background_texture.scaled_height + 1
+        num_tiles_x = self.map_size // self.background_texture.scaled_width + 1
+        num_tiles_y = self.map_size // self.background_texture.scaled_height + 1
 
         # setup matrix
         self.background_sprites_matrix = arcade.SpriteList()
@@ -346,7 +411,7 @@ class Game(arcade.Window):
         """
         border_list = arcade.SpriteList()
         half = ROOM_SIZE * TILE_SIZE//2
-        for i in range(ROOM_COUNT):
+        for i in range(self.room_count):
             # down
             wall = arcade.SpriteSolidColor(width=ROOM_SIZE*TILE_SIZE, height=50,
                                            color=arcade.color.BOSTON_UNIVERSITY_RED)
@@ -356,7 +421,7 @@ class Game(arcade.Window):
             # up
             wall = arcade.SpriteSolidColor(width=ROOM_SIZE*TILE_SIZE, height=50,
                                            color=arcade.color.BOSTON_UNIVERSITY_RED)
-            wall.set_position(half + i * ROOM_SIZE * TILE_SIZE, MAP_SIZE+25)
+            wall.set_position(half + i * ROOM_SIZE * TILE_SIZE, self.map_size+25)
             border_list.append(wall)
 
             # left
@@ -368,7 +433,7 @@ class Game(arcade.Window):
             # right
             wall = arcade.SpriteSolidColor(width=50, height=ROOM_SIZE*TILE_SIZE,
                                            color=arcade.color.BOSTON_UNIVERSITY_RED)
-            wall.set_position(MAP_SIZE+25, half + i * ROOM_SIZE * TILE_SIZE)
+            wall.set_position(self.map_size+25, half + i * ROOM_SIZE * TILE_SIZE)
             border_list.append(wall)
 
         self.scene.add_sprite_list(name, True, border_list)
@@ -377,7 +442,7 @@ class Game(arcade.Window):
         """
         randomly generate room matrix
         """
-        self.map_matrix = [[Room() for _ in range(ROOM_COUNT)] for _ in range(ROOM_COUNT)]
+        self.map_matrix = [[Room() for _ in range(self.room_count)] for _ in range(self.room_count)]
 
         self.map_matrix[0][0].exist = True
         self.map_matrix[0][0].visited = True
@@ -385,8 +450,8 @@ class Game(arcade.Window):
         self.create_room(i=0, j=0)
 
         last_id = self.map_matrix[0][0].room_id
-        for i in range(ROOM_COUNT):
-            for j in range(ROOM_COUNT):
+        for i in range(self.room_count):
+            for j in range(self.room_count):
                 if not self.map_matrix[i][j].visited:
                     self.map_matrix[i][j].visited = True
                     if random.getrandbits(1):
@@ -408,12 +473,12 @@ class Game(arcade.Window):
             i = queue[pointer][0]
             j = queue[pointer][1]
 
-            if current_count == MAX_TILES_IN_ROOM: break # reinsurance
-            if i + 1 < ROOM_COUNT:
+            if current_count == MAX_ROOM_SECTIONS: break # reinsurance
+            if i + 1 < self.room_count:
                 if not self.map_matrix[i + 1][j].visited:
                     self.map_matrix[i + 1][j].visited = True
                     # if current_count >= MAX_TILES_IN_ROOM generator will stop
-                    if random.getrandbits(MAX_TILES_IN_ROOM)//current_count:
+                    if random.getrandbits(MAX_ROOM_SECTIONS)//current_count:
                         self.map_matrix[i + 1][j].exist = True
                         self.map_matrix[i][j].width = ROOM_SIZE
                         self.map_matrix[i + 1][j].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
@@ -422,11 +487,11 @@ class Game(arcade.Window):
                         current_count += 1
                         queue.append((i + 1, j))
 
-            if current_count == MAX_TILES_IN_ROOM: break
+            if current_count == MAX_ROOM_SECTIONS: break
             if i - 1 >= 0:
                 if not self.map_matrix[i - 1][j].visited:
                     self.map_matrix[i - 1][j].visited = True
-                    if random.getrandbits(MAX_TILES_IN_ROOM)//current_count:
+                    if random.getrandbits(MAX_ROOM_SECTIONS)//current_count:
                         self.map_matrix[i - 1][j].exist = True
                         self.map_matrix[i - 1][j].width = ROOM_SIZE
                         self.map_matrix[i - 1][j].height = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
@@ -434,11 +499,11 @@ class Game(arcade.Window):
                         current_count += 1
                         queue.append((i - 1, j))
 
-            if current_count == MAX_TILES_IN_ROOM: break
-            if j + 1 < ROOM_COUNT:
+            if current_count == MAX_ROOM_SECTIONS: break
+            if j + 1 < self.room_count:
                 if not self.map_matrix[i][j + 1].visited:
                     self.map_matrix[i][j + 1].visited = True
-                    if random.getrandbits(MAX_TILES_IN_ROOM)//current_count:
+                    if random.getrandbits(MAX_ROOM_SECTIONS)//current_count:
                         self.map_matrix[i][j + 1].exist = True
                         self.map_matrix[i][j].height = ROOM_SIZE
                         self.map_matrix[i][j + 1].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
@@ -447,11 +512,11 @@ class Game(arcade.Window):
                         current_count += 1
                         queue.append((i, j + 1))
 
-            if current_count == MAX_TILES_IN_ROOM: break
+            if current_count == MAX_ROOM_SECTIONS: break
             if j - 1 >= 0:
                 if not self.map_matrix[i][j - 1].visited:
                     self.map_matrix[i][j - 1].visited = True
-                    if random.getrandbits(MAX_TILES_IN_ROOM)//current_count:
+                    if random.getrandbits(MAX_ROOM_SECTIONS)//current_count:
                         self.map_matrix[i][j - 1].exist = True
                         self.map_matrix[i][j - 1].width = random.randint(MIN_ROOM_SIZE, ROOM_SIZE)
                         self.map_matrix[i][j - 1].height = ROOM_SIZE
@@ -466,8 +531,8 @@ class Game(arcade.Window):
         """
         Final lick check and rooms rebuild
         """
-        for i in range(ROOM_COUNT-1):
-            for j in range(ROOM_COUNT-1):
+        for i in range(self.room_count-1):
+            for j in range(self.room_count-1):
 
                 f1 = f2 = False
                 if self.map_matrix[i + 1][j].room_id == self.map_matrix[i][j].room_id: #right check
@@ -485,13 +550,13 @@ class Game(arcade.Window):
                     self.map_matrix[i][j].height = ROOM_SIZE
                     self.map_matrix[i][j].width = ROOM_SIZE
 
-        for i in range(ROOM_COUNT - 1): # right edge check
-            if self.map_matrix[i + 1][ROOM_COUNT-1].room_id == self.map_matrix[i][ROOM_COUNT-1].room_id:
-                self.map_matrix[i][ROOM_COUNT-1].width = ROOM_SIZE  # necessary part, bag fix
+        for i in range(self.room_count - 1): # right edge check
+            if self.map_matrix[i + 1][self.room_count-1].room_id == self.map_matrix[i][self.room_count-1].room_id:
+                self.map_matrix[i][self.room_count-1].width = ROOM_SIZE  # necessary part, bag fix
 
-        for j in range(ROOM_COUNT - 1): #up edge check
-            if self.map_matrix[ROOM_COUNT-1][j + 1].room_id == self.map_matrix[ROOM_COUNT-1][j].room_id:
-                self.map_matrix[ROOM_COUNT-1][j].heigth = ROOM_SIZE  # necessary part, bag fix
+        for j in range(self.room_count - 1): #up edge check
+            if self.map_matrix[self.room_count-1][j + 1].room_id == self.map_matrix[self.room_count-1][j].room_id:
+                self.map_matrix[self.room_count-1][j].heigth = ROOM_SIZE  # necessary part, bag fix
 
     @property
     def graph_builds(self):
@@ -512,9 +577,9 @@ class Game(arcade.Window):
 
         previous_i, previous_j = 0, 0
         # vertical relation
-        for i in range(ROOM_COUNT):
+        for i in range(self.room_count):
             previous_id = None
-            for j in range(ROOM_COUNT):
+            for j in range(self.room_count):
                 if self.map_matrix[i][j].room_id:
                     correct_id = self.map_matrix[i][j].room_id
                     if previous_id is None:
@@ -528,9 +593,9 @@ class Game(arcade.Window):
                         previous_i, previous_j = i, j
 
         # horizontal relation
-        for j in range(ROOM_COUNT):
+        for j in range(self.room_count):
             previous_id = None
-            for i in range(ROOM_COUNT):
+            for i in range(self.room_count):
                 if self.map_matrix[i][j].room_id:
                     correct_id = self.map_matrix[i][j].room_id
                     if previous_id is None:
@@ -546,7 +611,7 @@ class Game(arcade.Window):
         return graph
 
     def get_max_room_id(self):
-        return max([self.map_matrix[i][j].room_id for i in range(ROOM_COUNT) for j in range(ROOM_COUNT)])
+        return max([self.map_matrix[i][j].room_id for i in range(self.room_count) for j in range(self.room_count)])
 
     def create_corridors(self):
         """
@@ -704,10 +769,10 @@ class Game(arcade.Window):
         wall_list = arcade.SpriteList()  # correct!!
         coordinate_list = []
         # setup walls
-        for i in range(ROOM_COUNT):
-            for j in range(ROOM_COUNT):
+        for i in range(self.room_count):
+            for j in range(self.room_count):
                 if self.map_matrix[i][j].exist:
-                    if i + 1 < ROOM_COUNT:
+                    if i + 1 < self.room_count:
                         if self.map_matrix[i + 1][j].room_id == self.map_matrix[i][j].room_id:
                             for y in range(0, self.map_matrix[i][j].height - self.map_matrix[i + 1][j].height): # right
 
@@ -739,7 +804,7 @@ class Game(arcade.Window):
 
                                                      y * TILE_SIZE +
                                                      j * TILE_SIZE * ROOM_SIZE)]
-                    if j + 1 < ROOM_COUNT:
+                    if j + 1 < self.room_count:
                         if self.map_matrix[i][j + 1].room_id == self.map_matrix[i][j].room_id:
                             for x in range(0, self.map_matrix[i][j].width - self.map_matrix[i][j + 1].width):  # up
 
@@ -781,15 +846,15 @@ class Game(arcade.Window):
 
         # append edges walls
         i = 0
-        for j in range(ROOM_COUNT): # left (map edge)
+        for j in range(self.room_count): # left (map edge)
             coordinate_list = []
             for y in range(0, self.map_matrix[i][j].height + 1):
                 coordinate_list += [(i * TILE_SIZE * ROOM_SIZE,
                                      y * TILE_SIZE + j * TILE_SIZE * ROOM_SIZE)]
             append_wall_list(coordinate_list, wall_list)
 
-        i = ROOM_COUNT - 1
-        for j in range(ROOM_COUNT): # right (map edge)
+        i = self.room_count - 1
+        for j in range(self.room_count): # right (map edge)
             coordinate_list = []
             for y in range(0, self.map_matrix[i][j].height + 1):
                 coordinate_list += [(i * TILE_SIZE * ROOM_SIZE + self.map_matrix[i][j].width * TILE_SIZE,
@@ -797,15 +862,15 @@ class Game(arcade.Window):
             append_wall_list(coordinate_list, wall_list)
 
         j = 0
-        for i in range(ROOM_COUNT): # down (map edge)
+        for i in range(self.room_count): # down (map edge)
             coordinate_list = []
             for x in range(0, self.map_matrix[i][j].width + 1):
                 coordinate_list += [(x * TILE_SIZE + i * TILE_SIZE * ROOM_SIZE,
                                      j * TILE_SIZE * ROOM_SIZE)]
             append_wall_list(coordinate_list, wall_list)
 
-        j = ROOM_COUNT - 1
-        for i in range(ROOM_COUNT): # up (map edge)
+        j = self.room_count - 1
+        for i in range(self.room_count): # up (map edge)
             coordinate_list = []
             for x in range(0, self.map_matrix[i][j].width + 1):
                 coordinate_list += [(x * TILE_SIZE + i * TILE_SIZE * ROOM_SIZE,
@@ -836,8 +901,8 @@ class Game(arcade.Window):
 
     def rnd_create_trinket(self):
         while True:
-            x = random.randint(0, ROOM_COUNT-1)
-            y = random.randint(0, ROOM_COUNT-1)
+            x = random.randint(0, self.room_count-1)
+            y = random.randint(0, self.room_count-1)
             if self.map_matrix[x][y].exist:
                 item = arcade.Sprite(f"{PATH}sprites\\trinket.png", 0.2)
                 item.center_x = x * ROOM_SIZE * TILE_SIZE + TILE_SIZE
@@ -887,8 +952,8 @@ class Game(arcade.Window):
         screen_y = self.person.center_y - (SCREEN_HEIGHT // 2) // CAMERA_SCALING
 
         # outboard inspection
-        self.camera_x = max(min(screen_x, MAP_SIZE - SCREEN_WIDTH // CAMERA_SCALING), 0)
-        self.camera_y = max(min(screen_y, MAP_SIZE - SCREEN_HEIGHT // CAMERA_SCALING), 0)
+        self.camera_x = max(min(screen_x, self.map_size - SCREEN_WIDTH // CAMERA_SCALING), 0)
+        self.camera_y = max(min(screen_y, self.map_size - SCREEN_HEIGHT // CAMERA_SCALING), 0)
 
         # I don't know how it worked, most likely the coordinates of the vector are calculated depending on the screen
         self.camera.move_to(
@@ -912,6 +977,9 @@ class Game(arcade.Window):
     def on_draw(self):
         if self.current_state == "menu":
             self.start_menu.draw()
+        elif self.current_state == "setup":
+            self.setup()
+            self.current_state = "game"
         elif self.current_state == "game":
             self.draw_game()
         elif self.current_state == "final":
